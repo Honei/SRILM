@@ -1,7 +1,7 @@
 /*
  * ngram-count --
  *	Create and manipulate word ngram counts
- *
+ *  
  */
 
 #ifndef lint
@@ -73,7 +73,7 @@ static int interpolate[maxorder+1] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 static char *gtFile[maxorder+1];
 static char *knFile[maxorder+1];
-static char *lmFile = 0;
+static char *lmFile = 0;	// 语言模型文件
 static int writeBinaryLM = 0;
 static char *initLMFile = 0;
 
@@ -304,9 +304,7 @@ static Option options[] = {
     { OPT_DOC, 0, 0, "the default action is to write counts to stdout" },
 };
 
-static Boolean
-copyFile(File &in, File &out)
-{
+static Boolean copyFile(File &in, File &out) {
     char *line;
 
     while ((line = in.getline())) {
@@ -315,41 +313,41 @@ copyFile(File &in, File &out)
     return !(in.error());
 }
 
-int
-main(int argc, char **argv)
+/********************开始位置************************************/
+
+int main(int argc, char **argv)
 {
     setlocale(LC_CTYPE, "");
     setlocale(LC_COLLATE, "");
 
     Boolean written = false;
-
+	// 1. 解析命令行参数
     Opt_Parse(argc, argv, options, Opt_Number(options), 0);
 
+	// 2. 如果传入了版本信息，那么只输出版本信息，然后就直接退出程序
     if (version) {
-	printVersion(RcsId);
-	exit(0);
+		printVersion(RcsId);
+		exit(0);
     }
 
     if (useFloatCounts + tagged + skipNgram +
-	(stopWordFile != 0) + (varPrune != 0.0) > 1)
-    {
-	cerr << "fractional counts, variable, tagged, stop-word Ngram and skip N-gram models are mutually exclusive\n";
-	exit(2);
+		(stopWordFile != 0) + (varPrune != 0.0) > 1) {
+		cerr << "fractional counts, variable, tagged, stop-word Ngram and skip N-gram models are mutually exclusive\n";
+		exit(2);
     }
 
     /*
      * Detect inconsistent discounting options
      */
     if (ndiscount[0] +
-	wbdiscount[0] +
-	(cdiscount[0] != -1.0) +
-	(addsmooth[0] != -1.0) +
-	ukndiscount[0] + 
-	(knFile[0] != 0 || kndiscount[0]) +
-	(gtFile[0] != 0) > 1)
-    {
-	cerr << "conflicting default discounting options\n";
-	exit(2);
+		wbdiscount[0] +
+		(cdiscount[0] != -1.0) +
+		(addsmooth[0] != -1.0) +
+		ukndiscount[0] + 
+		(knFile[0] != 0 || kndiscount[0]) +
+		(gtFile[0] != 0) > 1) {
+		cerr << "conflicting default discounting options\n";
+		exit(2);
     }
 
     Vocab *vocab = tagged ? new TaggedVocab : new Vocab;
@@ -362,22 +360,22 @@ main(int argc, char **argv)
      * Change unknown word string if requested
      */
     if (mapUnknown) {
-	vocab->remove(vocab->unkIndex());
-	vocab->unkIndex() = vocab->addWord(mapUnknown);
+		vocab->remove(vocab->unkIndex());
+		vocab->unkIndex() = vocab->addWord(mapUnknown);
     }
 
     /*
      * Meta tag is used to input count-of-count information
      */
     if (metaTag) {
-	vocab->metaTag() = metaTag;
+		vocab->metaTag() = metaTag;
     }
 
     SubVocab *stopWords = 0;
 
     if (stopWordFile != 0) {
-	stopWords = new SubVocab(*vocab);
-	assert(stopWords);
+		stopWords = new SubVocab(*vocab);
+		assert(stopWords);
     }
 
     /*
@@ -396,17 +394,17 @@ main(int argc, char **argv)
 #define USE_STATS(what) (useFloatCounts ? floatStats->what : intStats->what)
 
     if (useFloatCounts) {
-	assert(floatStats != 0);
+		assert(floatStats != 0);
     } else {
-	assert(intStats != 0);
+		assert(intStats != 0);
     }
 
     USE_STATS(debugme(debug));
 
     if (vocabFile) {
-	File file(vocabFile, "r");
-	USE_STATS(vocab.read(file));
-	USE_STATS(openVocab) = false;
+		File file(vocabFile, "r");
+		USE_STATS(vocab.read(file));
+		USE_STATS(openVocab) = false;
     }
 
     if (noSOS) {
@@ -417,94 +415,97 @@ main(int argc, char **argv)
     }
 
     if (vocabAliasFile) {
-	File file(vocabAliasFile, "r");
-	USE_STATS(vocab.readAliases(file));
+		File file(vocabAliasFile, "r");
+		USE_STATS(vocab.readAliases(file));
     }
 
     if (stopWordFile) {
-	File file(stopWordFile, "r");
-	stopWords->read(file);
+		File file(stopWordFile, "r");
+		stopWords->read(file);
     }
 
     if (noneventFile) {
-	/*
-	 * create temporary sub-vocabulary for non-event words
-	 */
-	SubVocab nonEvents(USE_STATS(vocab));
+		/*
+		* create temporary sub-vocabulary for non-event words
+		*/
+		SubVocab nonEvents(USE_STATS(vocab));
 
-	File file(noneventFile, "r");
-	nonEvents.read(file);
+		File file(noneventFile, "r");
+		nonEvents.read(file);
 
-	USE_STATS(vocab).addNonEvents(nonEvents);
+		USE_STATS(vocab).addNonEvents(nonEvents);
     }
 
     if (intersectFile) {
-	File file(intersectFile, "r");
-
+		File file(intersectFile, "r");
         USE_STATS(read(file, order, limitVocab));
-	USE_STATS(setCounts(0));
-	USE_STATS(intersect) = true;
+		USE_STATS(setCounts(0));
+		USE_STATS(intersect) = true;
     }
 
     if (readFile) {
-	File file(readFile, "r");
+		// 读取统计数据
+		cout << "read train file from: " << readFile << endl;
+		File file(readFile, "r");
+		unsigned countOrder = USE_STATS(getorder());
+		cout << "gram order: " << countOrder << endl;
+		if (readWithMincounts) {
+			makeArray(Count, minCounts, countOrder);
 
-	unsigned countOrder = USE_STATS(getorder());
-
-	if (readWithMincounts) {
-	    makeArray(Count, minCounts, countOrder);
-
-	    /* construct min-counts array from -gtNmin options */
-	    unsigned i;
-	    for (i = 0; i < countOrder && i < maxorder; i ++) {
-		minCounts[i] = (Count)gtmin[i + 1];
-	    }
-	    for ( ; i < countOrder; i ++) {
-		minCounts[i] = (Count)gtmin[0];
-	    }
-	    USE_STATS(readMinCounts(file, countOrder, minCounts));
-	} else {
-	    USE_STATS(read(file, countOrder, limitVocab));
-	}
+			/* construct min-counts array from -gtNmin options */
+			unsigned i;
+			for (i = 0; i < countOrder && i < maxorder; i ++) {
+				minCounts[i] = (Count)gtmin[i + 1];
+			}
+			for ( ; i < countOrder; i ++) {
+				minCounts[i] = (Count)gtmin[0];
+			}
+			USE_STATS(readMinCounts(file, countOrder, minCounts));
+		} else {
+			cout << "intStats->read() " << endl;
+			USE_STATS(read(file, countOrder, limitVocab));
+		}
     }
 
     if (readGoogleDir) {
-    	if (!USE_STATS(readGoogle(readGoogleDir, order, limitVocab))) {
-	    cerr << "error reading Google counts from "
-	         << readGoogleDir << endl;
-	    exit(1);
-	}
+		if (!USE_STATS(readGoogle(readGoogleDir, order, limitVocab))) {
+			cerr << "error reading Google counts from "
+				<< readGoogleDir << endl;
+			exit(1);
+		}
     }
-
+	
+	// 传入训练数据，使用-text参数
     if (textFile) {
-	File file(textFile, "r");
-	if (writeTextFile) {
-	    File outFile(writeTextFile, "w");
-	    copyFile(file, outFile);
-	} else {
-	    USE_STATS(countFile(file, textFileHasWeightsLast ? 2 : (textFileHasWeights ? 1 : 0)));
-	}
+		File file(textFile, "r");
+		cout << "read textCount file from " << textFile << endl;
+		if (writeTextFile) {
+			File outFile(writeTextFile, "w");
+			copyFile(file, outFile);
+		} else {
+			USE_STATS(countFile(file, textFileHasWeightsLast ? 2 : (textFileHasWeights ? 1 : 0)));
+		}
     }
 
     if (memuse) {
-	MemStats memuse;
-	USE_STATS(memStats(memuse));
+		MemStats memuse;
+		USE_STATS(memStats(memuse));
 
-	if (debug == 0)  {
-	    memuse.clearAllocStats();
-	}
-	memuse.print();
+		if (debug == 0)  {
+			memuse.clearAllocStats();
+		}
+		memuse.print();
 
     	if (debug > 0) {
-	    BM_printstats();
-	}
+	    	BM_printstats();
+		}
     }
 
     if (recompute) {
-	if (useFloatCounts)
-	    floatStats->sumCounts(order);
-	else
-	    intStats->sumCounts(order);
+		if (useFloatCounts)
+			floatStats->sumCounts(order);
+		else
+			intStats->sumCounts(order);
     }
 
     /*
@@ -512,8 +513,8 @@ main(int argc, char **argv)
      * we need order >= 1 for LM estimation.
      */
     if (order == 0) {
-	cerr << "LM order must be positive -- set to 1\n";
-	order = 1;
+		cerr << "LM order must be positive -- set to 1\n";
+		order = 1;
     }
 
     /*
@@ -525,7 +526,7 @@ main(int argc, char **argv)
 
     unsigned i;
     for (i = 0; i < order; i ++) {
-	discounts[i] = 0;
+		discounts[i] = 0;
     }
 
     /*
@@ -535,234 +536,248 @@ main(int argc, char **argv)
      * - we also want to estimate a LM later
      */
     for (i = 1; !useCountLM && !useMaxentLM && i <= order; i++) {
-	/*
-	 * Detect inconsistent options for this order
-	 */
-	if (i <= maxorder &&
-	    ndiscount[i] + wbdiscount[i] +
-	    (cdiscount[i] != -1.0) + (addsmooth[i] != -1.0) +
-	    ukndiscount[i] + (knFile[i] != 0 || kndiscount[i]) +
-	    (gtFile[i] != 0) > 1)
-	{
-	    cerr << "conflicting discounting options for order " << i << endl;
-	    exit(2);
-	}
-
-	/*
-	 * Inherit default discounting method where needed
-	 */
-	if (i <= maxorder &&
-	    !ndiscount[i] && !wbdiscount[i] &&
-	    cdiscount[i] == -1.0 && addsmooth[i] == -1.0 &&
-	    !ukndiscount[i] && knFile[i] == 0 && !kndiscount[i] &&
-	    gtFile[i] == 0)
-	{
-	    if (ndiscount[0]) ndiscount[i] = ndiscount[0];
-	    else if (wbdiscount[0]) wbdiscount[i] = wbdiscount[0]; 
-	    else if (cdiscount[0] != -1.0) cdiscount[i] = cdiscount[0];
-	    else if (addsmooth[0] != -1.0) addsmooth[i] = addsmooth[0];
-	    else if (ukndiscount[0]) ukndiscount[i] = ukndiscount[0];
-	    else if (kndiscount[0]) kndiscount[i] = kndiscount[0];
-
-	    if (knFile[0] != 0) knFile[i] = knFile[0];
-	    else if (gtFile[0] != 0) gtFile[i] = gtFile[0];
-	}
-
-	/*
-	 * Choose discounting method to use
-	 *
-	 * Also, check for any discounting parameter files.
-	 * These have a dual interpretation.
-	 * If we're not estimating a new LM, simple WRITE the parameters
-	 * out.  Otherwise try to READ them from these files.
-	 *
-	 * Note: Test for ukndiscount[] before knFile[] so that combined use 
-	 * of -ukndiscountN and -knfileN will do the right thing.
-	 */
-	unsigned useorder = (i > maxorder) ? 0 : i;
-	Discount *discount = 0;
-
-	if (ndiscount[useorder]) {
-	    if (debug) cerr << "using NaturalDiscount for " << i << "-grams";
-	    discount = new NaturalDiscount(gtmin[useorder]);
-	    assert(discount);
-	} else if (wbdiscount[useorder]) {
-	    if (debug) cerr << "using WittenBell for " << i << "-grams";
-	    discount = new WittenBell(gtmin[useorder]);
-	    assert(discount);
-	} else if (cdiscount[useorder] != -1.0) {
-	    if (debug) cerr << "using ConstDiscount for " << i << "-grams";
-	    discount = new ConstDiscount(cdiscount[useorder], gtmin[useorder]);
-	    assert(discount);
-	} else if (addsmooth[useorder] != -1.0) {
-	    if (debug) cerr << "using AddSmooth for " << i << "-grams";
-	    discount = new AddSmooth(addsmooth[useorder], gtmin[useorder]);
-	    assert(discount);
-	} else if (ukndiscount[useorder]) {
-	    if (debug) cerr << "using KneserNey for " << i << "-grams";
-	    discount = new KneserNey((unsigned)gtmin[useorder], knCountsModified, knCountsModifyAtEnd);
-	    assert(discount);
-	} else if (knFile[useorder] || kndiscount[useorder]) {
-	    if (debug) cerr << "using ModKneserNey for " << i << "-grams";
-	    discount = new ModKneserNey((unsigned)gtmin[useorder], knCountsModified, knCountsModifyAtEnd);
-	    assert(discount);
-	} else if (gtFile[useorder] || (i <= order && lmFile)) {
-	    if (debug) cerr << "using GoodTuring for " << i << "-grams";
-	    discount = new GoodTuring((unsigned)gtmin[useorder], gtmax[useorder]);
-	    assert(discount);
-	}
-	if (debug && discount != 0) cerr << endl;
-
-	/*
-	 * Now read in, or estimate the discounting parameters.
-	 * Also write them out if no language model is being created.
-	 */
-	if (discount) {
-	    discount->debugme(debug);
-
-	    if (interpolate[0] || interpolate[useorder]) {
-		discount->interpolate = true;
-	    }
-
-	    if (knFile[useorder] && lmFile) {
-		File file(knFile[useorder], "r");
-
-		if (!discount->read(file)) {
-		    cerr << "error in reading discount parameter file "
-			 << knFile[useorder] << endl;
-		    exit(1);
-		}
-	    } else if (gtFile[useorder] && lmFile) {
-		File file(gtFile[useorder], "r");
-
-		if (!discount->read(file)) {
-		    cerr << "error in reading discount parameter file "
-			 << gtFile[useorder] << endl;
-		    exit(1);
-		}
-	    } else {
 		/*
-		 * Estimate discount params, and write them only if 
-		 * a file was specified, but no language model is
-		 * being estimated.
-		 */
-		if (!(useFloatCounts ? discount->estimate(*floatStats, i) :
-				       discount->estimate(*intStats, i)))
-		{
-		    cerr << "error in discount estimator for order "
-			 << i << endl;
-		    exit(1);
+		* Detect inconsistent options for this order
+		* 进行第 i 阶 gram 参数估计
+		*/
+		cout << "start to compute the " << i << "-gram" << endl;
+		if (i <= maxorder &&
+			ndiscount[i] + wbdiscount[i] +
+			(cdiscount[i] != -1.0) + (addsmooth[i] != -1.0) +
+			ukndiscount[i] + (knFile[i] != 0 || kndiscount[i]) +
+			(gtFile[i] != 0) > 1) {
+				cerr << "conflicting discounting options for order " << i << endl;
+				exit(2);
 		}
-		if (knFile[useorder]) {
-		    File file(knFile[useorder], "w");
-		    discount->write(file);
-		    written = true;
-		} else if (gtFile[useorder]) {
-		    File file(gtFile[useorder], "w");
-		    discount->write(file);
-		    written = true;
-		}
-	    }
 
-	    discounts[i-1] = discount;
-	}
+		/*
+		* Inherit default discounting method where needed
+		*/
+		if (i <= maxorder &&
+			!ndiscount[i] && !wbdiscount[i] &&
+			cdiscount[i] == -1.0 && addsmooth[i] == -1.0 &&
+			!ukndiscount[i] && knFile[i] == 0 && !kndiscount[i] &&
+			gtFile[i] == 0) {
+			if (ndiscount[0]) {
+				ndiscount[i] = ndiscount[0];
+			} else if (wbdiscount[0]) {
+				wbdiscount[i] = wbdiscount[0]; 
+			} else if (cdiscount[0] != -1.0) {
+				cdiscount[i] = cdiscount[0];
+			} else if (addsmooth[0] != -1.0) {
+				addsmooth[i] = addsmooth[0];
+			} else if (ukndiscount[0]) {
+				cout << "ukndiscount method for i: " << i << endl;
+				ukndiscount[i] = ukndiscount[0];
+			} else if (kndiscount[0]) {
+				cout << "kndiscount method for i: " << i << endl;
+				kndiscount[i] = kndiscount[0];
+			}
+			if (knFile[0] != 0) {
+				knFile[i] = knFile[0];
+			} else if (gtFile[0] != 0) {
+				gtFile[i] = gtFile[0];
+			}
+		}
+
+		/*
+		* Choose discounting method to use
+		*
+		* Also, check for any discounting parameter files.
+		* These have a dual interpretation.
+		* If we're not estimating a new LM, simple WRITE the parameters
+		* out.  Otherwise try to READ them from these files.
+		*
+		* Note: Test for ukndiscount[] before knFile[] so that combined use 
+		* of -ukndiscountN and -knfileN will do the right thing.
+		*/
+		unsigned useorder = (i > maxorder) ? 0 : i;
+		Discount *discount = 0;
+		cout << "useorder: " << useorder << endl;
+		if (ndiscount[useorder]) {
+			if (debug) cerr << "using NaturalDiscount for " << i << "-grams";
+			discount = new NaturalDiscount(gtmin[useorder]);
+			assert(discount);
+		} else if (wbdiscount[useorder]) {
+			if (debug) cerr << "using WittenBell for " << i << "-grams";
+			discount = new WittenBell(gtmin[useorder]);
+			assert(discount);
+		} else if (cdiscount[useorder] != -1.0) {
+			if (debug) cerr << "using ConstDiscount for " << i << "-grams";
+			discount = new ConstDiscount(cdiscount[useorder], gtmin[useorder]);
+			assert(discount);
+		} else if (addsmooth[useorder] != -1.0) {
+			if (debug) cerr << "using AddSmooth for " << i << "-grams";
+			discount = new AddSmooth(addsmooth[useorder], gtmin[useorder]);
+			assert(discount);
+		} else if (ukndiscount[useorder]) {
+			if (debug) cerr << "using KneserNey for " << i << "-grams" << endl;
+			discount = new KneserNey((unsigned)gtmin[useorder], knCountsModified, knCountsModifyAtEnd);
+			assert(discount);
+		} else if (knFile[useorder] || kndiscount[useorder]) {
+			// 在 1-gram 这里使用了 MonKneserNey 平滑策略
+			if (debug) cerr << "using ModKneserNey for " << i << "-grams" << endl;
+			discount = new ModKneserNey((unsigned)gtmin[useorder], knCountsModified, knCountsModifyAtEnd);
+			assert(discount);
+		} else if (gtFile[useorder] || (i <= order && lmFile)) {
+			if (debug) cerr << "using GoodTuring for " << i << "-grams";
+			discount = new GoodTuring((unsigned)gtmin[useorder], gtmax[useorder]);
+			assert(discount);
+		}
+		if (debug && discount != 0) {
+			 cerr << endl;
+		}
+		/*
+		* Now read in, or estimate the discounting parameters.
+		* Also write them out if no language model is being created.
+		* 进行 diiscount 参数估计
+		*/
+		if (discount) {
+			cout << "start to estimate the " << i << "-gram discounting parameters" << endl;
+			discount->debugme(debug);
+
+			if (interpolate[0] || interpolate[useorder]) {
+				discount->interpolate = true;
+			}
+
+			if (knFile[useorder] && lmFile) {
+				cout << "read the file: " << knFile[useorder] << endl;
+				File file(knFile[useorder], "r");
+
+				if (!discount->read(file)) {
+					cerr << "error in reading discount parameter file "
+					<< knFile[useorder] << endl;
+					exit(1);
+				}
+			} else if (gtFile[useorder] && lmFile) {
+				File file(gtFile[useorder], "r");
+
+				if (!discount->read(file)) {
+					cerr << "error in reading discount parameter file "
+					<< gtFile[useorder] << endl;
+					exit(1);
+				}
+			} else {
+				/*
+				* Estimate discount params, and write them only if 
+				* a file was specified, but no language model is
+				* being estimated.
+				*/
+				cout << "Estimate the discount params, useFloatCounts: "<< useFloatCounts << endl;
+				if (!(useFloatCounts ? discount->estimate(*floatStats, i) :
+							discount->estimate(*intStats, i))) {
+					cerr << "error in discount estimator for order "
+					<< i << endl;
+					exit(1);
+				}
+				if (knFile[useorder]) {
+					File file(knFile[useorder], "w");
+					discount->write(file);
+					written = true;
+				} else if (gtFile[useorder]) {
+					File file(gtFile[useorder], "w");
+					discount->write(file);
+					written = true;
+				}
+			}
+
+			discounts[i-1] = discount;
+		}
     }
 
     /*
      * Estimate a new model from the existing counts,
      */
     if (useCountLM && lmFile) {
-    	/*
-	 * count-LM estimation is different 
-	 * - read existing model from file
-	 * - set estimation parameters
-	 * - estimate 
-	 * - write updated model
-	 */
-	NgramCountLM *lm;
+		/*
+		* count-LM estimation is different 
+		* - read existing model from file
+		* - set estimation parameters
+		* - estimate 
+		* - write updated model
+		*/
+		NgramCountLM *lm;
 
-	lm = new NgramCountLM(*vocab, order);
-	assert(lm != 0);
+		lm = new NgramCountLM(*vocab, order);
+		assert(lm != 0);
 
-	lm->maxEMiters = maxEMiters;
-	lm->minEMdelta = minEMdelta;
+		lm->maxEMiters = maxEMiters;
+		lm->minEMdelta = minEMdelta;
 
-	/*
-	 * Set debug level on LM object
-	 */
-	lm->debugme(debug);
+		/*
+		* Set debug level on LM object
+		*/
+		lm->debugme(debug);
 
-	/*
-	 * Read initial LM parameters
-	 */
-	if (initLMFile) {
-	    File file(initLMFile, "r");
+		/*
+		* Read initial LM parameters
+		*/
+		if (initLMFile) {
+			File file(initLMFile, "r");
 
-	    if (!lm->read(file, limitVocab)) {
-		cerr << "format error in init-lm file\n";
-		exit(1);
-	    }
-	} else {
-	    cerr << "count-lm estimation needs initial model\n";
-	    exit(1);
-	}
+			if (!lm->read(file, limitVocab)) {
+			cerr << "format error in init-lm file\n";
+			exit(1);
+			}
+		} else {
+			cerr << "count-lm estimation needs initial model\n";
+			exit(1);
+		}
         
-	if (useFloatCounts) {
-	    cerr << "cannot use -float-counts with count-lm\n";
-	    exit(1);
-	}
+		if (useFloatCounts) {
+			cerr << "cannot use -float-counts with count-lm\n";
+			exit(1);
+		}
 
-        if (!lm->estimate(*intStats)) {
-	    cerr << "LM estimation failed\n";
-	    exit(1);
-	} else {
-	    /*
-	     * Write updated parameters, but avoid writing out the counts,
-	     * which are unchanged.
-	     */
-	    lm->writeCounts = false;
-	    if (writeBinaryLM) {
-		File file(lmFile, "wb");
-		lm->writeBinary(file);
-	    } else {
-		File file(lmFile, "w");
-		lm->write(file);
-	    }
-	}
+			if (!lm->estimate(*intStats)) {
+			cerr << "LM estimation failed\n";
+			exit(1);
+		} else {
+			/*
+			* Write updated parameters, but avoid writing out the counts,
+			* which are unchanged.
+			*/
+			lm->writeCounts = false;
+			if (writeBinaryLM) {
+			File file(lmFile, "wb");
+			lm->writeBinary(file);
+			} else {
+			File file(lmFile, "w");
+			lm->write(file);
+			}
+		}
 
-	written = true;
+		written = true;
 
-	// XXX: don't free the lm since this itself may take a long time
-	// and we're going to exit anyways.
-#ifdef DEBUG
-	delete lm;
-#endif
+		// XXX: don't free the lm since this itself may take a long time
+		// and we're going to exit anyways.
+	#ifdef DEBUG
+		delete lm;
+	#endif
     } else if (useMaxentLM && lmFile) {
     	/*
     	 * MaxEnt model estimation
-	 * -init-lm serves as model prior
+	 	* -init-lm serves as model prior
     	 */
     	MEModel *lm = new MEModel(*vocab, order);
     	lm->debugme(debug);
     	if (initLMFile) {
-	    File file(initLMFile, "r");
-
-    	    if (!lm->read(file)) {
-		cerr << "format error in maxent prior (-init-lm) file\n";
-		exit(1);
-    	    }
+			File file(initLMFile, "r");
+			if (!lm->read(file)) {
+				cerr << "format error in maxent prior (-init-lm) file\n";
+				exit(1);
+			}
 
     	    // Use default value 0.5 for L2 smoothing
     	    (useFloatCounts ? lm->adapt(*floatStats, maxentAlpha, maxentSigma2 == 0.0 ? 0.5 : maxentSigma2) :
     	    		lm->adapt(*intStats, maxentAlpha, maxentSigma2 == 0.0 ? 0.5 : maxentSigma2));
     	} else {
-	    // Use default value 6.0 for L2 smoothing
-	    if (!(useFloatCounts ? lm->estimate(*floatStats, maxentAlpha, maxentSigma2 == 0.0 ? 6.0 : maxentSigma2) :
-				   lm->estimate(*intStats, maxentAlpha, maxentSigma2 == 0.0 ? 6.0 : maxentSigma2)))
-	    {
-		cerr << "Maxent LM estimation failed\n";
-		exit(1);
-	    }
+			// Use default value 6.0 for L2 smoothing
+			if (!(useFloatCounts ? lm->estimate(*floatStats, maxentAlpha, maxentSigma2 == 0.0 ? 6.0 : maxentSigma2) :
+					lm->estimate(*intStats, maxentAlpha, maxentSigma2 == 0.0 ? 6.0 : maxentSigma2))) {
+				cerr << "Maxent LM estimation failed\n";
+				exit(1);
+			}
     	}
 	if (maxentConvertToArpa) {
 	    Ngram *ngram = lm->getNgramLM();
@@ -772,15 +787,15 @@ main(int argc, char **argv)
 	     * Remove redundant probs (perplexity increase below threshold)
 	     */
 	    if (prune != 0.0) {
-		ngram->pruneProbs(prune, minprune);
+			ngram->pruneProbs(prune, minprune);
 	    }
 
 	    if (writeBinaryLM) {
-		File file(lmFile, "wb");
-		ngram->writeBinary(file);
+			File file(lmFile, "wb");
+			ngram->writeBinary(file);
 	    } else {
-		File file(lmFile, "w");
-		ngram->write(file);
+			File file(lmFile, "w");
+			ngram->write(file);
 	    }
 #ifdef DEBUG
 	    delete ngram;
@@ -795,10 +810,10 @@ main(int argc, char **argv)
 #endif
     } else if (lmFile) {
         /*
-	 * Backoff ngram LM estimation:
-	 * either using a default discounting scheme, or the GT parameters
-	 * read in from files
-	 */
+		* Backoff ngram LM estimation:
+		* either using a default discounting scheme, or the GT parameters
+		* read in from files
+		*/
 	Ngram *lm;
 	
 	if (varPrune != 0.0) {

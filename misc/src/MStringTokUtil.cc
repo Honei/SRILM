@@ -15,19 +15,18 @@
 
 #include "MStringTokUtil.h"
 
-char*
-MStringTokUtil::strtok_r(char* s1, const char* s2, char** lasts)
-{
+char* MStringTokUtil::strtok_r(char* s1, const char* s2, char** lasts) {
     if (lasts == NULL) {
         return NULL;
     }
 
-    char* retval = NULL;
+    char* retval = NULL;    // 这个用于基于搜索的字符串
     if (s1 != NULL) {
         // First call
         retval = s1;
     } else if (*lasts != NULL) {
         // Get the input from the stored pointer state
+        // 从最后开始计数
         retval = *lasts;
     } else {
         // Saved state didn't have a string
@@ -41,6 +40,7 @@ MStringTokUtil::strtok_r(char* s1, const char* s2, char** lasts)
     }
 
     // Skip any initial separator characters
+    // 跳过开头的分隔符
     char ch;
     bool match = true;
     while (((ch = *retval) != 0) && match) {
@@ -75,6 +75,7 @@ MStringTokUtil::strtok_r(char* s1, const char* s2, char** lasts)
                 } else {
                     *lasts = NULL;
                 }
+                // 返回切割的单词
                 return retval;
             }
         }

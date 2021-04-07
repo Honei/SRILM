@@ -4,13 +4,13 @@
 # $Header: /home/srilm/CVS/srilm/Makefile,v 1.73 2019/09/10 17:48:09 stolcke Exp $
 #
 
-# SRILM = /home/speech/stolcke/project/srilm/devel
+SRILM = /Users/xiongxinlei/0.code/SRILM
 MACHINE_TYPE := $(shell $(SRILM)/sbin/machine-type)
 
 RELEASE := $(shell cat RELEASE)
 
 # Include common SRILM variable definitions.
-include $(SRILM)/common/Makefile.common.variables
+include $(SRILM)/common/Makefile.machine.macosx-m64
 
 PACKAGE_DIR = ..
 

@@ -49,8 +49,7 @@ Vocab::setCompareVocab(Vocab *v) {
 }
 
 Vocab::Vocab(VocabIndex start, VocabIndex end)
-    : byIndex(start), nextIndex(start), maxIndex(end), _metaTag(0)
-{
+    : byIndex(start), nextIndex(start), maxIndex(end), _metaTag(0) {
     /*
      * Vocab_None is both the non-index value and the end-token
      * for key sequences used with Tries.  Both need to be
@@ -141,52 +140,55 @@ Vocab::freeThread()
 }
 
 // Add word to vocabulary
-VocabIndex
-Vocab::addWord(VocabString name)
-{
+/**
+ * 词典中添加一个词，返回这个词在词典中的序号
+ * **/
+VocabIndex Vocab::addWord(VocabString name) {
+	// 1. 转换成小写	
     if (_toLower) {
-	name = mapToLower(name);
+		name = mapToLower(name);
     }
 
     Boolean found;
     VocabIndex *indexPtr = byName.insert(name, found);
 
+	// 2. 如果找到了这个词，那么返回这个词的索引序号
     if (found) {
-	return *indexPtr;
+		return *indexPtr;
     } else {
-	if (nextIndex == maxIndex) {
-	    return Vocab_None;
-	} else {
-	    *indexPtr = nextIndex;
-	    byIndex[nextIndex] = byName.getInternalKey(name);
+		if (nextIndex == maxIndex) {
+			return Vocab_None;
+		} else {
+			// 1. 得到当前词的序号
+	    	*indexPtr = nextIndex;
+	    	byIndex[nextIndex] = byName.getInternalKey(name);
 
-	    /*
-	     * Check for metatags, and intern them into our metatag type map
-	     */
-	    if (_metaTag != 0) {
-		unsigned metaTagLength = strlen(_metaTag);
+			/*
+			* Check for metatags, and intern them into our metatag type map
+			*/
+	    	if (_metaTag != 0) {
+				unsigned metaTagLength = strlen(_metaTag);
+				if (strncmp(name, _metaTag, metaTagLength) == 0) {
+						int type = -1;
+					if (name[metaTagLength] == '\0') {
+						type = 0;
+					} else {
+						sscanf(&name[metaTagLength], "%u", (unsigned *)&type);
+					}
+					if (type >= 0) {
+						*metaTagMap.insert(nextIndex) = type;
+					}
+				}
+	    	}
 
-		if (strncmp(name, _metaTag, metaTagLength) == 0) {
-		    int type = -1;
-		    if (name[metaTagLength] == '\0') {
-			type = 0;
-		    } else {
-			sscanf(&name[metaTagLength], "%u", (unsigned *)&type);
-		    }
-		    if (type >= 0) {
-			*metaTagMap.insert(nextIndex) = type;
-		    }
+			// 返回当前词的序号，并且得到下一个词的索引序号
+	    	return nextIndex++;
 		}
-	    }
-
-	    return nextIndex++;
-	}
     } 
 }
 
 // add an alternate (alias) name for a word index
-VocabIndex
-Vocab::addWordAlias(VocabIndex word, VocabString name)
+VocabIndex Vocab::addWordAlias(VocabIndex word, VocabString name)
 {
     if (_toLower) {
 	name = mapToLower(name);
@@ -395,16 +397,20 @@ Vocab::getWords(const VocabIndex *wids, VocabString *words,
 }
 
 // Convert word sequence to index sequence, adding words if needed
-unsigned int
-Vocab::addWords(const VocabString *words, VocabIndex *wids, unsigned int max)
-{
+/**
+ * 添加新的词
+ * **/
+unsigned int Vocab::addWords(const VocabString *words, 
+							 VocabIndex *wids, unsigned int max) {
     unsigned int i;
 
     for (i = 0; i < max && words[i] != 0; i++) {
-	wids[i] = addWord(words[i]);
+		wids[i] = addWord(words[i]);
     }
+
+	// cout << endl;
     if (i < max) {
-	wids[i] = Vocab_None;
+		wids[i] = Vocab_None;
     }
     return i;
 }
@@ -445,41 +451,43 @@ Vocab::checkWords(const VocabString *words, VocabIndex *wids, unsigned int max)
 }
 
 // parse strings into words and update stats
-unsigned int
-Vocab::parseWords(char *sentence, VocabString *words, unsigned int max)
-{
+/**
+ * 这是一个静态函数
+ * **/
+unsigned int Vocab::parseWords(char *sentence, VocabString *words, unsigned int max) {
     char *word;
     unsigned i;
     char *strtok_ptr = NULL;
-
+	// 对 sentence 进行分割，分割的单词是 word, 后续的指针保存在strtok_ptr中
     for (i = 0, word = MStringTokUtil::strtok_r(sentence, wordSeparators, &strtok_ptr);
 	 i < max && word != 0;
-	 i++, word = MStringTokUtil::strtok_r(0, wordSeparators, &strtok_ptr))
-    {
-	words[i] = word;
-    }
-    if (i < max) {
-	words[i] = 0;
+	 i++, word = MStringTokUtil::strtok_r(0, wordSeparators, &strtok_ptr)) {
+		words[i] = word;
     }
 
+    if (i < max) {
+		words[i] = 0;
+    }
+
+	// 返回分割的单词的数目
     return i;
 }
 
 /*
  * Length of Ngrams
+ * 返回单词索引序号的长度
  */
-unsigned int
-Vocab::length(const VocabIndex *words)
-{
+unsigned int Vocab::length(const VocabIndex *words) {
     unsigned int len = 0;
 
     while (words[len] != Vocab_None) len++;
     return len;
 }
 
-unsigned int
-Vocab::length(const VocabString *words)
-{
+/**
+ * 返回单词数组的长度
+ * **/
+unsigned int Vocab::length(const VocabString *words) {
     unsigned int len = 0;
 
     while (words[len] != 0) len++;
@@ -489,8 +497,7 @@ Vocab::length(const VocabString *words)
 /*
  * Copying (a la strcpy())
  */
-VocabIndex *
-Vocab::copy(VocabIndex *to, const VocabIndex *from)
+VocabIndex * Vocab::copy(VocabIndex *to, const VocabIndex *from)
 {
     unsigned i;
     for (i = 0; from[i] != Vocab_None; i ++) {
@@ -501,12 +508,10 @@ Vocab::copy(VocabIndex *to, const VocabIndex *from)
     return to;
 }
 
-VocabString *
-Vocab::copy(VocabString *to, const VocabString *from)
-{
+VocabString * Vocab::copy(VocabString *to, const VocabString *from) {
     unsigned i;
     for (i = 0; from[i] != 0; i ++) {
-	to[i] = from[i];
+		to[i] = from[i];
     }
     to[i] = 0;
 
@@ -516,9 +521,7 @@ Vocab::copy(VocabString *to, const VocabString *from)
 /*
  * Word containment
  */
-Boolean
-Vocab::contains(const VocabIndex *words, VocabIndex word)
-{
+Boolean Vocab::contains(const VocabIndex *words, VocabIndex word) {
     unsigned i;
 
     for (i = 0; words[i] != Vocab_None; i++) {
@@ -532,25 +535,18 @@ Vocab::contains(const VocabIndex *words, VocabIndex word)
 /*
  * Reversal of Ngrams
  */
-VocabIndex *
-Vocab::reverse(VocabIndex *words)
-{
+VocabIndex * Vocab::reverse(VocabIndex *words) {
     int i, j;	/* j can get negative ! */
 
-    for (i = 0, j = length(words) - 1;
-	 i < j;
-	 i++, j--)
-    {
-	VocabIndex x = words[i];
-	words[i] = words[j];
-	words[j] = x;
+    for (i = 0, j = length(words) - 1; i < j; i++, j--) {
+		VocabIndex x = words[i];
+		words[i] = words[j];
+		words[j] = x;
     }
     return words;
 }
 
-VocabString *
-Vocab::reverse(VocabString *words)
-{
+VocabString * Vocab::reverse(VocabString *words) {
     int i, j;	/* j can get negative ! */
 
     for (i = 0, j = length(words) - 1;
@@ -568,9 +564,7 @@ Vocab::reverse(VocabString *words)
  * Output of Ngrams
  */
 
-unsigned int
-Vocab::write(File &file, const VocabString *words)
-{
+unsigned int Vocab::write(File &file, const VocabString *words) {
     unsigned int i;
 
     for (i = 0; words[i] != 0; i++) {
@@ -581,24 +575,22 @@ Vocab::write(File &file, const VocabString *words)
     return i;
 }
 
-ostream &
-operator<< (ostream &stream, const VocabString *words)
+ostream & operator<< (ostream &stream, const VocabString *words)
 {
     for (unsigned int i = 0; words[i] != 0; i++) {
-	stream << (i > 0 ? " " : "") << words[i];
+		stream << (i > 0 ? " " : "") << words[i];
     }
     return stream;
 }
 
-ostream &
-operator<< (ostream &stream, const VocabIndex *words)
+ostream &operator<< (ostream &stream, const VocabIndex *words)
 {
     Vocab* &outputVocab = TLSW_GET(Vocab::outputVocabTLS);
     for (unsigned int i = 0; words[i] != Vocab_None; i++) {
-	VocabString word = outputVocab->getWord(words[i]);
+		VocabString word = outputVocab->getWord(words[i]);
 
-	stream << (i > 0 ? " " : "")
-	       << (word ? word : "UNKNOWN");
+		stream << (i > 0 ? " " : "")
+			<< (word ? word : "UNKNOWN");
     }
     return stream;
 }
@@ -611,9 +603,7 @@ operator<< (ostream &stream, const VocabIndex *words)
 // Vocab in a global variable, but then we couldn't use this function
 // with qsort() and friends.
 // If compareVocab == 0 then comparison by index is performed.
-int
-Vocab::compare(VocabIndex word1, VocabIndex word2)
-{
+int Vocab::compare(VocabIndex word1, VocabIndex word2) {
     Vocab* &compareVocab = TLSW_GET(compareVocabTLS);
 
     if (compareVocab == 0) {
@@ -624,9 +614,7 @@ Vocab::compare(VocabIndex word1, VocabIndex word2)
     }
 }
 
-int
-Vocab::compare(const VocabString *words1, const VocabString *words2)
-{
+int Vocab::compare(const VocabString *words1, const VocabString *words2) {
     unsigned int i = 0;
 
     for (i = 0; ; i++) {
@@ -650,9 +638,7 @@ Vocab::compare(const VocabString *words1, const VocabString *words2)
     /*NOTREACHED*/
 }
 
-int
-Vocab::compare(const VocabIndex *words1, const VocabIndex *words2)
-{
+int Vocab::compare(const VocabIndex *words1, const VocabIndex *words2) {
     unsigned int i = 0;
 
     for (i = 0; ; i++) {
@@ -681,26 +667,20 @@ Vocab::compare(const VocabIndex *words1, const VocabIndex *words2)
  * by the comparison functions and returns a pointer to them.
  * Suitable to generate the 'sort' argument used by the iterators.
  */
-VocabIndexComparator
-Vocab::compareIndex() const
-{
+VocabIndexComparator Vocab::compareIndex() const {
     Vocab* &compareVocab = TLSW_GET(compareVocabTLS);
     compareVocab = (Vocab *)this;	// discard const
     return &Vocab::compare;
 }
 
-VocabIndicesComparator
-Vocab::compareIndices() const
-{
+VocabIndicesComparator Vocab::compareIndices() const {
     Vocab* &compareVocab = TLSW_GET(compareVocabTLS);
     compareVocab = (Vocab *)this;	// discard const
     return &Vocab::compare;
 }
 
 // Write vocabulary to file
-void
-Vocab::write(File &file, Boolean sorted) const
-{
+void Vocab::write(File &file, Boolean sorted) const {
     VocabIter iter(*this, sorted);
     VocabString word;
 
@@ -711,9 +691,7 @@ Vocab::write(File &file, Boolean sorted) const
 }
 
 // Read vocabulary from file
-unsigned int
-Vocab::read(File &file)
-{
+unsigned int Vocab::read(File &file) {
     char *line;
     unsigned int howmany = 0;
     char *strtok_ptr = NULL;
@@ -738,9 +716,7 @@ Vocab::read(File &file)
 }
 
 // Read alias mapping from file
-unsigned int
-Vocab::readAliases(File &file)
-{
+unsigned int Vocab::readAliases(File &file) {
     char *line;
     unsigned int howmany = 0;
     char *strtok_ptr = NULL;
@@ -780,9 +756,7 @@ Vocab::readAliases(File &file)
     return howmany;
 }
 
-VocabIndex
-Vocab::highIndex() const
-{
+VocabIndex Vocab::highIndex() const {
     if (nextIndex == 0) {
 	return Vocab_None;
     } else {
@@ -814,9 +788,7 @@ Vocab::highIndex() const
  *		   if w > first(startRange) and w < last(endRange)
  *			return TRUE;
  */
-Boolean
-Vocab::ngramsInRange(VocabString *startRange, VocabString *endRange)
-{
+Boolean Vocab::ngramsInRange(VocabString *startRange, VocabString *endRange) {
     if ((startRange && startRange[0] == 0) ||
         (endRange && endRange[0] == 0))
     {

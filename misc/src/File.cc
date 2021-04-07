@@ -486,26 +486,20 @@ File::getline()
     }
 }
 
-void
-File::ungetline()
-{
+void File::ungetline() {
     reuseBuffer = true;
 }
 
-ostream &
-File::position(ostream &stream)
-{
+ostream &File::position(ostream &stream) {
     if (name) {
 	stream << name << ": ";
     }
     return stream << "line " << lineno << ": ";
 }
 
-ostream &
-File::offset(ostream &stream)
-{
+ostream &File::offset(ostream &stream) {
     if (name) {
-	stream << name << ": ";
+	    stream << name << ": ";
     }
     if (fp) {
         return stream << "offset " << ::ftello(fp) << ": ";

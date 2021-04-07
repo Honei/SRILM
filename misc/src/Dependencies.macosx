@@ -1,0 +1,25 @@
+../obj/macosx$(OBJ_OPTION)/option.o: option.c option.h cfuncproto.h
+../obj/macosx$(OBJ_OPTION)/zio.o: zio.c zio.h
+../obj/macosx$(OBJ_OPTION)/fcheck.o: fcheck.c zio.h fcheck.h
+../obj/macosx$(OBJ_OPTION)/rand48.o: rand48.c
+../obj/macosx$(OBJ_OPTION)/version.o: version.c zio.h version.h SRILMversion.h \
+  ../obj/macosx/SRILMoptions.h
+../obj/macosx$(OBJ_OPTION)/ztest.o: ztest.c zio.h ../../include/zlib.h ../../include/zconf.h \
+  option.h cfuncproto.h version.h
+../obj/macosx$(OBJ_OPTION)/Debug.o: Debug.cc Debug.h Boolean.h
+../obj/macosx$(OBJ_OPTION)/File.o: File.cc zio.h Boolean.h File.h ../../include/zlib.h \
+  ../../include/zconf.h ../../include/Array.cc ../../include/Array.h \
+  ../../include/Boolean.h ../../include/MemStats.h srilm_iconv.h
+../obj/macosx$(OBJ_OPTION)/MStringTokUtil.o: MStringTokUtil.cc MStringTokUtil.h
+../obj/macosx$(OBJ_OPTION)/tls.o: tls.cc tls.h
+../obj/macosx$(OBJ_OPTION)/tserror.o: tserror.cc tserror.h TLSWrapper.h tls.h Boolean.h
+../obj/macosx$(OBJ_OPTION)/tclmain.o: tclmain.cc
+../obj/macosx$(OBJ_OPTION)/testFile.o: testFile.cc File.h zio.h ../../include/zlib.h \
+  ../../include/zconf.h Boolean.h
+../obj/macosx$(OBJ_OPTION)/testRand.o: testRand.cc
+../bin/macosx$(OPTION)/ztest:	../obj/macosx$(OPTION)/ztest.o
+ztest:	../bin/macosx$(OPTION)/ztest
+../bin/macosx$(OPTION)/testFile:	../obj/macosx$(OPTION)/testFile.o
+testFile:	../bin/macosx$(OPTION)/testFile
+../bin/macosx$(OPTION)/testRand:	../obj/macosx$(OPTION)/testRand.o
+testRand:	../bin/macosx$(OPTION)/testRand

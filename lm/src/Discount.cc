@@ -171,9 +171,7 @@ GoodTuring::read(File &file)
  *
  *	d(c) = (c+1)/c * n_(c+1)/n_c
  */
-Boolean
-GoodTuring::estimate(NgramStats &counts, unsigned order)
-{
+Boolean GoodTuring::estimate(NgramStats &counts, unsigned order) {
     Array<Count> countOfCounts;
 
     /*
@@ -269,8 +267,7 @@ GoodTuring::estimate(NgramStats &counts, unsigned order)
  *  performed.
  */
 
-double
-NaturalDiscount::discount(Count count, Count totalCount, Count observedVocab)
+double NaturalDiscount::discount(Count count, Count totalCount, Count observedVocab)
 {
     double n = totalCount;
     double q = observedVocab;
@@ -284,9 +281,7 @@ NaturalDiscount::discount(Count count, Count totalCount, Count observedVocab)
     }
 }
 
-Boolean
-NaturalDiscount::estimate(NgramStats &counts, unsigned order)
-{
+Boolean NaturalDiscount::estimate(NgramStats &counts, unsigned order) {
     _vocabSize = vocabSize(counts.vocab);
     return true;
 }
@@ -295,9 +290,7 @@ NaturalDiscount::estimate(NgramStats &counts, unsigned order)
 /*
  * Unmodified (i.e., regular) Kneser-Ney discounting
  */
-double
-KneserNey::discount(Count count, Count totalCount, Count observedVocab)
-{
+double KneserNey::discount(Count count, Count totalCount, Count observedVocab) {
     if (count <= 0) {
 	return 1.0;
     } else if (count < minCount) {
@@ -307,49 +300,41 @@ KneserNey::discount(Count count, Count totalCount, Count observedVocab)
     }
 }
 
-double
-KneserNey::lowerOrderWeight(Count totalCount, Count observedVocab,
-					    Count min2Vocab, Count min3Vocab)
-{
+double KneserNey::lowerOrderWeight(Count totalCount, Count observedVocab,
+					    Count min2Vocab, Count min3Vocab) {
     return (discount1 * observedVocab / totalCount);
 }
 
-void
-KneserNey::write(File &file)
-{
+void KneserNey::write(File &file) {
     file.fprintf("mincount %s\n", countToString(minCount));
     file.fprintf("discount1 %.*lg\n", Prob_Precision, discount1);
 }
 
-Boolean
-KneserNey::read(File &file)
-{
+Boolean KneserNey::read(File &file) {
     char *line;
-
+	// cout << "read the file : " << file << endl;
     while ((line = file.getline())) {
-	char buffer[100];
-	unsigned count;
-	double coeff;
+		char buffer[100];
+		unsigned count;
+		double coeff;
 	
-	if (sscanf(line, "mincount %99s", buffer) == 1 &&
-	    stringToCount(buffer, minCount))
-	{
-	    continue;
-	} else if (sscanf(line, "discount1 %lf", &discount1) == 1) {
-	    continue;
-	} else {
-	    file.position() << "unrecognized parameter\n";
-	    return false;
-	}
+		if (sscanf(line, "mincount %99s", buffer) == 1 &&
+			stringToCount(buffer, minCount)) {
+			continue;
+		} else if (sscanf(line, "discount1 %lf", &discount1) == 1) {
+			continue;
+		} else {
+			file.position() << "unrecognized parameter\n";
+			return false;
+		}
     }
     return true;
 }
 
-Boolean
-KneserNey::estimate(NgramStats &counts, unsigned order)
-{
+Boolean KneserNey::estimate(NgramStats &counts, unsigned order) {
     if (!prepareCountsAtEnd) {
-	prepareCounts(counts, order, counts.getorder());
+		cout << "start to compute the counts" << endl;
+		prepareCounts(counts, order, counts.getorder());
     }
 
     /*
@@ -363,59 +348,62 @@ KneserNey::estimate(NgramStats &counts, unsigned order)
     NgramCount *count;
 
     while ((count = iter.next())) {
-	if (counts.vocab.isNonEvent(wids[order - 1])) {
-	    continue;
-	} else if (counts.vocab.isMetaTag(wids[order - 1])) {
-	    unsigned type = counts.vocab.typeOfMetaTag(wids[order - 1]);
-
-	    /*
-	     * process count-of-count
-	     */
-	    if (type == 1) {
-		n1 ++;
-	    } else if (type == 2) {
-		n2 ++;
-	    }
-	} else if (*count == 1) {
-	    n1 ++;
-	} else if (*count == 2) {
-	    n2 ++;
-	}
+		cout << "count: " << *count << " , word: " << wids[order - 1] << endl;
+		if (counts.vocab.isNonEvent(wids[order - 1])) {
+			cout << "word: " << counts.vocab.getWord(wids[order - 1]) << " is NonEvent" << endl << endl;
+			continue;
+		} else if (counts.vocab.isMetaTag(wids[order - 1])) {
+			unsigned type = counts.vocab.typeOfMetaTag(wids[order - 1]);
+			cout << "word: " << counts.vocab.getWord(wids[order - 1]) << " is isMetaTag" << endl;
+			/*
+			* process count-of-count
+			*/
+			if (type == 1) {
+				n1 ++;
+			} else if (type == 2) {
+				n2 ++;
+			}
+		} else if (*count == 1) {
+	    	n1 ++;
+		} else if (*count == 2) {
+			n2 ++;
+		} else {
+			cout << "process occurs error for count: " << *count << endl;
+		}
     }
 	    
     if (debug(DEBUG_ESTIMATE_DISCOUNT)) {
-	dout() << "Kneser-Ney smoothing " << order << "-grams\n"
-	       << "n1 = " << n1 << endl
-	       << "n2 = " << n2 << endl;
+		dout() << "Kneser-Ney smoothing " << order << "-grams\n"
+			<< "n1 = " << n1 << endl
+			<< "n2 = " << n2 << endl;
     }
 
     if (n1 == 0 || n2 == 0) {
-	cerr << "one of required KneserNey count-of-counts is zero\n";
-	return false;
+		cerr << "one of required KneserNey count-of-counts is zero\n";
+		return false;
     }
 
     discount1 = n1/((double)n1 + 2*n2);
 
     if (debug(DEBUG_ESTIMATE_DISCOUNT)) {
-      dout() << "D = " << discount1 << endl;
+      	dout() << "D = " << discount1 << endl;
     }
 
     if (prepareCountsAtEnd) {
-	prepareCounts(counts, order, counts.getorder());
+		prepareCounts(counts, order, counts.getorder());
     }
     return true;
 }
 
-void
-KneserNey::prepareCounts(NgramCounts<NgramCount> &counts, unsigned order,
-							 unsigned maxOrder)
-{
+void KneserNey::prepareCounts(NgramCounts<NgramCount> &counts, unsigned order,
+							 unsigned maxOrder) {
+	cout << "prepareCounts, curOrder: " << order << ", maxOrder: " << maxOrder << endl;
     if (countsAreModified || order >= maxOrder) {
-	return;
+		return;
     }
 
     if (debug(DEBUG_ESTIMATE_DISCOUNT)) {
-	dout() << "modifying "
+		dout() << "modifying "
 	       << order << "-gram counts for Kneser-Ney smoothing\n";
     }
 
@@ -434,32 +422,47 @@ KneserNey::prepareCounts(NgramCounts<NgramCount> &counts, unsigned order,
      * are usually no words preceeding them.
      */
     {
-	NgramCountsIter<NgramCount> iter(counts, ngram, order);
-	NgramCount *count;
-
-	while ((count = iter.next())) {
-	    if (!counts.vocab.isNonEvent(ngram[0])) {
-		*count = 0;
-	    }
-	}
+		NgramCountsIter<NgramCount> iter(counts, ngram, order);
+		NgramCount *count;
+		// count 返回的是该字符出现的次数
+		// ngram[0] 返回的是字符的序号
+		// 清空指定 order 的数据内容 
+		// 这里没有清空 </s> 的内容，
+		while ((count = iter.next())) {
+			if (!counts.vocab.isNonEvent(ngram[0])) {
+				if (debug(DEBUG_ESTIMATE_DISCOUNT)) {
+					dout() << "count is: " << *count << ", ngram[0] is: " << counts.vocab.getWord(ngram[0]) << endl;
+				}				
+				*count = 0;
+			}
+		}
     }
 
     /*
      * Now accumulate new counts
      */
-    {
-	NgramCountsIter<NgramCount> iter(counts, ngram, order + 1);
-	NgramCount *count;
+    {	
+		// 现在重新计算这个统计量
+		NgramCountsIter<NgramCount> iter(counts, ngram, order + 1);
+		NgramCount *count;
 
-	while ((count = iter.next())) {
-	    if (*count > 0 && !counts.vocab.isNonEvent(ngram[1])) {
-		NgramCount *loCount = counts.findCount(&ngram[1]);
+		// 遍历词典，如果n-gram 词第一次出现
+		// 在 1 阶的计算中
+		// 从</s> ~ 0 ~9 的 loCount 的值都是11
+		// 因为前面的词有 <s> ~0 ~9 一共11个词
+		while ((count = iter.next())) {
+			if (*count > 0 && !counts.vocab.isNonEvent(ngram[1])) {
+				NgramCount *loCount = counts.findCount(&ngram[1]);
 
-		if (loCount) {
-		    (*loCount) += 1;
+				if (loCount) {
+					(*loCount) += 1;
+					// cout << "count is: " << *count << ", ngram[0] is: " << counts.vocab.getWord(ngram[1]) <<", count will be: " << *loCount << endl;
+					if (debug(DEBUG_ESTIMATE_DISCOUNT)) {
+						dout() << "count is: " << *count << ", ngram[1] is: " << counts.vocab.getWord(ngram[1]) <<", count will be: " << *loCount << endl;
+					}
+				}
+			}
 		}
-	    }
-	}
     }
 
     countsAreModified = true;
@@ -472,33 +475,29 @@ KneserNey::prepareCounts(NgramCounts<NgramCount> &counts, unsigned order,
  *	Smoothing Techniques for Language Modeling, TR-10-98, Computer
  *	Science Group, Harvard University, Cambridge, MA, August 1998.
  */
-double
-ModKneserNey::discount(Count count, Count totalCount, Count observedVocab)
+double ModKneserNey::discount(Count count, Count totalCount, Count observedVocab)
 {
     if (count <= 0) {
-	return 1.0;
+		return 1.0;
     } else if (count < minCount) {
-	return 0.0;
+		return 0.0;
     } else if (count == 1) {
-	return (count - discount1) / count;
+		return (count - discount1) / count;
     } else if (count == 2) {
-	return (count - discount2) / count;
+		return (count - discount2) / count;
     } else {
-	return (count - discount3plus) / count;
+		return (count - discount3plus) / count;
     }
 }
 
-double
-ModKneserNey::lowerOrderWeight(Count totalCount, Count observedVocab,
-					    Count min2Vocab, Count min3Vocab)
-{
+double ModKneserNey::lowerOrderWeight(Count totalCount, Count observedVocab,
+					    Count min2Vocab, Count min3Vocab) {
     return (discount1 * (observedVocab - min2Vocab) +
 	    discount2 * (min2Vocab - min3Vocab) +
 	    discount3plus * min3Vocab) / totalCount;
 }
 
-void
-ModKneserNey::write(File &file)
+void ModKneserNey::write(File &file)
 {
     file.fprintf("mincount %s\n", countToString(minCount));
     file.fprintf("discount1 %.*lf\n", Prob_Precision, discount1);
@@ -534,11 +533,13 @@ ModKneserNey::read(File &file)
     return true;
 }
 
-Boolean
-ModKneserNey::estimate(NgramStats &counts, unsigned order)
-{
+/**
+ * 进行修正的 Kneser&Ney 算法进行估计
+ * @param [in] order: n 元文法的阶数
+ * **/
+Boolean ModKneserNey::estimate(NgramStats &counts, unsigned order) {
     if (!prepareCountsAtEnd) {
-	prepareCounts(counts, order, counts.getorder());
+		prepareCounts(counts, order, counts.getorder());
     }
 
     /*
@@ -549,50 +550,58 @@ ModKneserNey::estimate(NgramStats &counts, unsigned order)
     Count n3 = 0;
     Count n4 = 0;
 
+	// 生成一个 order + 1 个元素的数组，数组的下标是从0~order
+	// 数组的名称是 wids
     makeArray(VocabIndex, wids, order + 1);
     NgramsIter iter(counts, wids, order);
     NgramCount *count;
-
+	// TODO: 计算 count 的时候发生异常
     while ((count = iter.next())) {
-	if (counts.vocab.isNonEvent(wids[order - 1])) {
-	    continue;
-	} else if (counts.vocab.isMetaTag(wids[order - 1])) {
-	    unsigned type = counts.vocab.typeOfMetaTag(wids[order - 1]);
-
-	    /*
-	     * process count-of-count
-	     */
-	    if (type == 1) {
-		n1 ++;
-	    } else if (type == 2) {
-		n2 ++;
-	    } else if (type == 3) {
-		n3 ++;
-	    } else if (type == 4) {
-		n4 ++;
-	    }
-	} else if (*count == 1) {
-	    n1 ++;
-	} else if (*count == 2) {
-	    n2 ++;
-	} else if (*count == 3) {
-	    n3 ++;
-	} else if (*count == 4) {
-	    n4 ++;
-	}
-    }
+		cout << "ModKneserNey count: " << *count << endl;
+		if (counts.vocab.isNonEvent(wids[order - 1])) {
+			cout << "no need to process for count: " << *count << endl;
+	    	continue;
+		} else if (counts.vocab.isMetaTag(wids[order - 1])) {
+			unsigned type = counts.vocab.typeOfMetaTag(wids[order - 1]);
+			/*
+			* process count-of-count
+			*/
+			cout << "process the count-of-count: " << type << endl;
+			if (type == 1) {
+				n1 ++;
+			} else if (type == 2) {
+				n2 ++;
+			} else if (type == 3) {
+				n3 ++;
+			} else if (type == 4) {
+				n4 ++;
+			}
+		} else if (*count == 1) {
+			n1 ++;
+		} else if (*count == 2) {
+			n2 ++;
+		} else if (*count == 3) {
+			n3 ++;
+		} else if (*count == 4) {
+			n4 ++;
+		} else {
+			cout << "exception occurs for count: " << *count << endl;
+		}
+	} 
 	    
     if (debug(DEBUG_ESTIMATE_DISCOUNT)) {
-	dout() << "Kneser-Ney smoothing " << order << "-grams\n"
-	       << "n1 = " << n1 << endl
-	       << "n2 = " << n2 << endl
-	       << "n3 = " << n3 << endl
-	       << "n4 = " << n4 << endl;
+		dout() << "Kneser-Ney smoothing " << order << "-grams\n"
+			<< "n1 = " << n1 << endl
+			<< "n2 = " << n2 << endl
+			<< "n3 = " << n3 << endl
+			<< "n4 = " << n4 << endl;
     }
 
+	// 这里发生错误了，有是1的情况
+	// TODO 调试这里，为什么 n1~n4都是0
     if (n1 == 0 || n2 == 0 || n3 == 0 || n4 == 0) {
-	cerr << "one of required modified KneserNey count-of-counts is zero\n";
-	return false;
+		cerr << "one of required modified KneserNey count-of-counts is zero\n";
+		return false;
     }
 
     /*
