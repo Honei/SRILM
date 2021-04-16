@@ -45,66 +45,65 @@ TextStats::increment(const TextStats &stats, FloatCount weight)
 /*
  * Format stats for stream output
  */
-ostream &
-operator<< (ostream &stream, const TextStats &stats)
-{
+ostream & operator<< (ostream &stream, const TextStats &stats) {
 
     unsigned oldprec = stream.precision();
 
     // output count values with maximal precision
+	// << __FUNCTION__ <<":" << __LINE__ << " "
     stream.precision(FloatCount_Precision);
-    stream << stats.numSentences << " sentences, " 
+    stream  << stats.numSentences << " sentences, " 
            << stats.numWords << " words, "
 	   << stats.numOOVs << " OOVs" << endl;
 
     if (stats.numWords + stats.numSentences > 0) {
-	stream << stats.zeroProbs << " zeroprobs, ";
+		stream << stats.zeroProbs << " zeroprobs, ";
 
-	// set precision for LogP-based values following
-	stream.precision(LogP_Precision);
-	stream << "logprob= " << stats.prob;
+		// set precision for LogP-based values following
+		stream.precision(LogP_Precision);
+		stream << "logprob= " << stats.prob;
 
-	double denom = stats.numWords - stats.numOOVs - stats.zeroProbs
-							+ stats.numSentences;
+		double denom = stats.numWords - stats.numOOVs - stats.zeroProbs
+								+ stats.numSentences;
 
-	if (denom > 0) {
-	    stream << " ppl= " << LogPtoPPL(stats.prob / denom);
-	} else {
-	    stream << " ppl= undefined";
-	}
+		if (denom > 0) {
+			stream << " ppl= " << LogPtoPPL(stats.prob / denom);
+		} else {
+			stream << " ppl= undefined";
+		}
 
-	denom -= stats.numSentences;
+		denom -= stats.numSentences;
 
-	if (denom > 0) {
-	    stream << " ppl1= " << LogPtoPPL(stats.prob / denom);
-	} else {
-	    stream << " ppl1= undefined";
-	}
+		if (denom > 0) {
+			stream << " ppl1= " << LogPtoPPL(stats.prob / denom);
+		} else {
+			stream << " ppl1= undefined";
+		}
 
-	/*
-	 * Ranking and loss metrics
-	 */
-	if (stats.rTotal > 0) {
-	    FloatCount denom1 = stats.rTotal - stats.numSentences;
-	    FloatCount denom2 = stats.rTotal;
+		/*
+		* Ranking and loss metrics
+		*/
+		if (stats.rTotal > 0) {
+			FloatCount denom1 = stats.rTotal - stats.numSentences;
+			FloatCount denom2 = stats.rTotal;
 
-	    if (denom2 > 0) {
-		stream.precision(FloatCount_Precision);
-		stream << endl << denom1 << " words,";
-		stream << " rank1= " << (denom1 > 0 ? stats.r1 / denom1 : 0.0);
-		stream << " rank5= " << (denom1 > 0 ? stats.r5 / denom1 : 0.0);
-		stream << " rank10= " << (denom1 > 0 ? stats.r10 / denom1 : 0.0);
+			if (denom2 > 0) {
+				stream.precision(FloatCount_Precision);
+				stream << endl << denom1 << " words,";
+				stream << " rank1= " << (denom1 > 0 ? stats.r1 / denom1 : 0.0);
+				stream << " rank5= " << (denom1 > 0 ? stats.r5 / denom1 : 0.0);
+				stream << " rank10= " << (denom1 > 0 ? stats.r10 / denom1 : 0.0);
 
-		stream << endl << denom2 << " words+sents,";
-		stream << " rank1wSent= " << (stats.r1 + stats.r1se) / denom2;
-		stream << " rank5wSent= " << (stats.r5 + stats.r5se) / denom2;
-		stream << " rank10wSent= " << (stats.r10 + stats.r10se) / denom2;
-		stream << " qloss= " << sqrt(stats.posQuadLoss / denom2);
-		stream << " absloss= " << stats.posAbsLoss / denom2;
-	    }
-        }
+				stream << endl << denom2 << " words+sents,";
+				stream << " rank1wSent= " << (stats.r1 + stats.r1se) / denom2;
+				stream << " rank5wSent= " << (stats.r5 + stats.r5se) / denom2;
+				stream << " rank10wSent= " << (stats.r10 + stats.r10se) / denom2;
+				stream << " qloss= " << sqrt(stats.posQuadLoss / denom2);
+				stream << " absloss= " << stats.posAbsLoss / denom2;
+			}
+		}
 
-	stream << endl;
+		stream << endl;
     } 
     stream.precision(oldprec);
 

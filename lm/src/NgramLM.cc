@@ -114,14 +114,16 @@ Ngram::memStats(MemStats &stats)
     }
 }
 
-Ngram::Ngram(Vocab &vocab, unsigned neworder)
-    : LM(vocab), contexts(vocab.numWords()),
-      order(neworder), _skipOOVs(false), _trustTotals(false),
-      codebook(0)
-{
-    if (order < 1) {
-	order = 1;
-    }
+Ngram::Ngram(Vocab &vocab, unsigned neworder) : 
+		LM(vocab), 
+		contexts(vocab.numWords()),
+      	order(neworder), 
+		_skipOOVs(false), 
+		_trustTotals(false),
+      	codebook(0) {
+	if (order < 1) {
+		order = 1;
+	}
 }
 
 unsigned 
@@ -1631,9 +1633,7 @@ Ngram::vocabSize()
  * Propate changes to VarNgram::estimate().
  */
 template <class CountType>
-Boolean
-Ngram::estimate2(NgramCounts<CountType> &stats, Discount **discounts)
-{
+Boolean Ngram::estimate2(NgramCounts<CountType> &stats, Discount **discounts) {
     /*
      * For all ngrams, compute probabilities and apply the discount
      * coefficients.
@@ -1651,8 +1651,8 @@ Ngram::estimate2(NgramCounts<CountType> &stats, Discount **discounts)
      * the vocabulary.
      */
     {
-	VocabIndex emptyContext = Vocab_None;
-	contexts.find(&emptyContext)->probs.setsize(vocab.numWords());
+		VocabIndex emptyContext = Vocab_None;
+		contexts.find(&emptyContext)->probs.setsize(vocab.numWords());
     }
 
     /*
@@ -1660,123 +1660,121 @@ Ngram::estimate2(NgramCounts<CountType> &stats, Discount **discounts)
      * in distributeProb(), yet is assumed by much other software).
      */
     if (vocab.ssIndex() != Vocab_None) {
-	context[0] = Vocab_None;
-	*insertProb(vocab.ssIndex(), context) = LogP_Zero;
+		context[0] = Vocab_None;
+		*insertProb(vocab.ssIndex(), context) = LogP_Zero;
     }
 
     for (unsigned i = 1; i <= order; i++) {
-	unsigned noneventContexts = 0;
-	unsigned noneventNgrams = 0;
-	unsigned discountedNgrams = 0;
+		unsigned noneventContexts = 0;
+		unsigned noneventNgrams = 0;
+		unsigned discountedNgrams = 0;
 
 	/*
-	 * check if discounting is disabled for this round
-	 */
-	Boolean noDiscount =
-			(discounts == 0) ||
-			(discounts[i-1] == 0) ||
-			discounts[i-1]->nodiscount();
+		* check if discounting is disabled for this round
+		*/
+		Boolean noDiscount =
+				(discounts == 0) ||
+				(discounts[i-1] == 0) ||
+				discounts[i-1]->nodiscount();
 
-	/*
-	 * modify counts are required by discounting method
-	 */
-	if (!noDiscount && discounts && discounts[i-1]) {
-	    discounts[i-1]->prepareCounts(stats, i, order);
-	}
-
-	/*
-	 * This enumerates all contexts, i.e., i-1 grams.
-	 */
-	CountType *contextCount;
-	NgramCountsIter<CountType> contextIter(stats, context, i-1);
-
-	while ((contextCount = contextIter.next())) {
-	    /*
-	     * Skip contexts ending in </s>.  This typically only occurs
-	     * with the doubling of </s> to generate trigrams from
-	     * bigrams ending in </s>.
-	     * If <unk> is not real word, also skip context that contain
-	     * it.
-	     */
-	    if ((i > 1 && context[i-2] == vocab.seIndex()) ||
-	        (vocab.isNonEvent(vocab.unkIndex()) &&
-				 vocab.contains(context, vocab.unkIndex())))
-	    {
-		noneventContexts ++;
-		continue;
-	    }
-
-	    /*
-	     * Re-determine if interpolated discounting is in effect.
-	     * (This might be modified in the retry loop below.)
-	     */
-	    Boolean interpolate =
-			(discounts != 0) &&
-			(discounts[i-1] != 0) &&
-			discounts[i-1]->interpolate;
-
-	    VocabIndex word[2];	/* the follow word */
-	    NgramCountsIter<CountType> followIter(stats, context, word, 1);
-	    CountType *ngramCount;
-
-	    /*
-	     * Total up the counts for the denominator
-	     * (the lower-order counts may not be consistent with
-	     * the higher-order ones, so we can't just use *contextCount)
-	     * Only if the trustTotal flag is set do we override this
-	     * with the count from the context ngram.
-	     */
-	    CountType totalCount = 0;
-	    Count observedVocab = 0, min2Vocab = 0, min3Vocab = 0;
-	    while ((ngramCount = followIter.next())) {
-		if (vocab.isNonEvent(word[0]) ||
-		    ngramCount == 0 ||
-		    (i == 1 && vocab.isMetaTag(word[0])))
-		{
-		    continue;
+		/*
+		* modify counts are required by discounting method
+		*/
+		if (!noDiscount && discounts && discounts[i-1]) {
+			discounts[i-1]->prepareCounts(stats, i, order);
 		}
 
-		if (!vocab.isMetaTag(word[0])) {
-		    totalCount += *ngramCount;
-		    observedVocab ++;
-		    if (*ngramCount >= 2) {
-			min2Vocab ++;
-		    }
-		    if (*ngramCount >= 3) {
-			min3Vocab ++;
-		    }
-		} else {
-		    /*
-		     * Process meta-counts
-		     */
-		    unsigned type = vocab.typeOfMetaTag(word[0]);
-		    if (type == 0) {
+		/*
+		* This enumerates all contexts, i.e., i-1 grams.
+		*/
+		CountType *contextCount;
+		NgramCountsIter<CountType> contextIter(stats, context, i-1);
+
+		while ((contextCount = contextIter.next())) {
 			/*
-			 * a count total: just add to the totalCount
-			 * the corresponding type count can't be known,
-			 * but it has to be at least 1
-			 */
-			totalCount += *ngramCount;
-			observedVocab ++;
-		    } else {
+			* Skip contexts ending in </s>.  This typically only occurs
+			* with the doubling of </s> to generate trigrams from
+			* bigrams ending in </s>.
+			* If <unk> is not real word, also skip context that contain
+			* it.
+			*/
+			if ((i > 1 && context[i-2] == vocab.seIndex()) ||
+				(vocab.isNonEvent(vocab.unkIndex()) &&
+					vocab.contains(context, vocab.unkIndex()))) {
+				noneventContexts ++;
+				continue;
+			}
+
 			/*
-			 * a count-of-count: increment the word type counts,
-			 * and infer the totalCount
-			 */
-			totalCount += type * *ngramCount;
-			observedVocab += (Count)*ngramCount;
-			if (type >= 2) {
-			    min2Vocab += (Count)*ngramCount;
+			* Re-determine if interpolated discounting is in effect.
+			* (This might be modified in the retry loop below.)
+			*/
+			Boolean interpolate =
+				(discounts != 0) &&
+				(discounts[i-1] != 0) &&
+				discounts[i-1]->interpolate;
+
+			VocabIndex word[2];	/* the follow word */
+			NgramCountsIter<CountType> followIter(stats, context, word, 1);
+			CountType *ngramCount;
+
+			/*
+			* Total up the counts for the denominator
+			* (the lower-order counts may not be consistent with
+			* the higher-order ones, so we can't just use *contextCount)
+			* Only if the trustTotal flag is set do we override this
+			* with the count from the context ngram.
+			*/
+			CountType totalCount = 0;
+			Count observedVocab = 0, min2Vocab = 0, min3Vocab = 0;
+			while ((ngramCount = followIter.next())) {
+			if (vocab.isNonEvent(word[0]) ||
+				ngramCount == 0 ||
+				(i == 1 && vocab.isMetaTag(word[0]))) {
+				continue;
 			}
-			if (type >= 3) {
-			    min3Vocab += (Count)*ngramCount;
+
+			if (!vocab.isMetaTag(word[0])) {
+				totalCount += *ngramCount;
+				observedVocab ++;
+				if (*ngramCount >= 2) {
+					min2Vocab ++;
+				}
+				if (*ngramCount >= 3) {
+					min3Vocab ++;
+				}
+			} else {
+				/*
+				* Process meta-counts
+				*/
+				unsigned type = vocab.typeOfMetaTag(word[0]);
+				if (type == 0) {
+					/*
+					* a count total: just add to the totalCount
+					* the corresponding type count can't be known,
+					* but it has to be at least 1
+					*/
+					totalCount += *ngramCount;
+					observedVocab ++;
+				} else {
+					/*
+					* a count-of-count: increment the word type counts,
+					* and infer the totalCount
+					*/
+					totalCount += type * *ngramCount;
+					observedVocab += (Count)*ngramCount;
+					if (type >= 2) {
+						min2Vocab += (Count)*ngramCount;
+					}
+					if (type >= 3) {
+						min3Vocab += (Count)*ngramCount;
+					}
+		    	}
 			}
-		    }
-		}
 	    }
 
 	    if (i > 1 && trustTotals()) {
-		totalCount = *contextCount;
+			totalCount = *contextCount;
 	    }
 
 	    if (totalCount == 0) {
@@ -1821,12 +1819,10 @@ Ngram::estimate2(NgramCounts<CountType> &stats, Discount **discounts)
 		     * vocab models, its presence would prevent OOV
 		     * detection when the model is read back in.
 		     */
-		    if (i > 1 ||
-			word[0] == vocab.unkIndex() ||
-			vocab.isMetaTag(word[0]))
-		    {
-			noneventNgrams ++;
-			continue;
+		    if (i > 1 || word[0] == vocab.unkIndex() ||
+				vocab.isMetaTag(word[0])) {
+				noneventNgrams ++;
+				continue;
 		    }
 
 		    lprob = LogP_Zero;
@@ -1837,10 +1833,10 @@ Ngram::estimate2(NgramCounts<CountType> &stats, Discount **discounts)
 		     * to indicate no discounting at this order.
 		     */
 		    if (noDiscount) {
-			discount = 1.0;
+				discount = 1.0;
 		    } else {
-			discount =
-			    discounts[i-1]->discount(*ngramCount, totalCount,
+				discount =
+			   		discounts[i-1]->discount(*ngramCount, totalCount,
 								observedVocab);
 		    }
 		    Prob prob = (discount * *ngramCount) / totalCount;
@@ -1857,7 +1853,7 @@ Ngram::estimate2(NgramCounts<CountType> &stats, Discount **discounts)
 		    double lowerOrderWeight;
 		    LogP lowerOrderProb;
 		    if (interpolate) {
-			lowerOrderWeight = 
+				lowerOrderWeight = 
 			    discounts[i-1]->lowerOrderWeight(totalCount,
 							     observedVocab,
 							     min2Vocab,
@@ -1868,40 +1864,40 @@ Ngram::estimate2(NgramCounts<CountType> &stats, Discount **discounts)
 			    lowerOrderProb = - log10((double)vocabSize);
 			}
 
-			prob += lowerOrderWeight * LogPtoProb(lowerOrderProb);
+				prob += lowerOrderWeight * LogPtoProb(lowerOrderProb);
 		    }
 
 		    lprob = ProbToLogP(prob);
 
 		    if (discount != 0.0) {
-			totalProb += prob;
+				totalProb += prob;
 		    }
 
 		    if (discount != 0.0 && debug(DEBUG_ESTIMATES)) {
-			dout() << "CONTEXT " << (vocab.use(), context)
-			       << " WORD " << vocab.getWord(word[0])
-			       << " NUMER " << *ngramCount
-			       << " DENOM " << totalCount
-			       << " DISCOUNT " << discount;
+				dout() << "CONTEXT " << (vocab.use(), context)
+					<< " WORD " << vocab.getWord(word[0])
+					<< " NUMER " << *ngramCount
+					<< " DENOM " << totalCount
+					<< " DISCOUNT " << discount;
 
 			if (interpolate) {
 			    dout() << " LOW " << lowerOrderWeight
 				   << " LOLPROB " << lowerOrderProb;
 			}
-			dout() << " LPROB " << lprob << endl;
+				dout() << " LPROB " << lprob << endl;
 		    }
 		}
 		    
-		/*
-		 * A discount coefficient of zero indicates this ngram
-		 * should be omitted entirely (presumably to save space).
-		 */
-		if (discount == 0.0) {
-		    discountedNgrams ++;
-		    removeProb(word[0], context);
-		} else {
-		    *insertProb(word[0], context) = lprob;
-		} 
+			/*
+			* A discount coefficient of zero indicates this ngram
+			* should be omitted entirely (presumably to save space).
+			*/
+			if (discount == 0.0) {
+				discountedNgrams ++;
+				removeProb(word[0], context);
+			} else {
+				*insertProb(word[0], context) = lprob;
+			} 
 	    }
 
 	    /*
@@ -1917,20 +1913,19 @@ Ngram::estimate2(NgramCounts<CountType> &stats, Discount **discounts)
 	     * probability mass.
 	     */
 	    if (!noDiscount && totalCount > 0 &&
-		observedVocab < vocabSize &&
-		totalProb > 1.0 - Prob_Epsilon)
-	    {
-		if (debug(DEBUG_ESTIMATE_WARNINGS)) {
-		    cerr << "warning: " << (1.0 - totalProb)
-			 << " backoff probability mass left for \""
-			 << (vocab.use(), context)
-			 << "\" -- ";
-		    if (interpolate) {
-			 cerr << "disabling interpolation\n";
-		    } else {
-			 cerr << "incrementing denominator\n";
-		    }
-		}
+			observedVocab < vocabSize &&
+			totalProb > 1.0 - Prob_Epsilon) {
+			if (debug(DEBUG_ESTIMATE_WARNINGS)) {
+				cerr << "warning: " << (1.0 - totalProb)
+				<< " backoff probability mass left for \""
+				<< (vocab.use(), context)
+				<< "\" -- ";
+				if (interpolate) {
+				cerr << "disabling interpolation\n";
+				} else {
+				cerr << "incrementing denominator\n";
+				}
+			}
 
 		if (interpolate) {
 		    interpolate = false;
@@ -1938,7 +1933,7 @@ Ngram::estimate2(NgramCounts<CountType> &stats, Discount **discounts)
 		    totalCount += 1;
 		}
 
-		goto retry;
+			goto retry;
 	    }
 
 	    /*
@@ -1977,9 +1972,10 @@ Ngram::estimate2(NgramCounts<CountType> &stats, Discount **discounts)
     return true;
 }
 
-Boolean
-Ngram::estimate(NgramStats &stats, Discount **discounts)
-{
+Boolean Ngram::estimate(NgramStats &stats, Discount **discounts) {
+	if (debug(DEBUG_ESTIMATES)) {
+	    dout() << __FILE__ << "::" << __FUNCTION__ << "::" << __LINE__ << " lm model estimate" << endl;
+	}
     return estimate2(stats, discounts);
 }
 

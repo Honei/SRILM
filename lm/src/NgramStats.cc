@@ -64,16 +64,14 @@ NgramCounts<CountT>::NgramCounts(Vocab &vocab, unsigned int maxOrder)
 }
 
 template <class CountT>
-unsigned int
-NgramCounts<CountT>::countSentence(const VocabString *words, const char *factor)
-{
+unsigned int NgramCounts<CountT>::countSentence(const VocabString *words, const char *factor) {
     CountT factorCount;
 
     /*
      * Parse the weight string as a count
      */
     if (!stringToCount(factor, factorCount)) {
-	return 0;
+		return 0;
     }
 
     return countSentence(words, factorCount);
@@ -135,35 +133,36 @@ NgramCounts<CountT>::countSentence(const VocabString *words, CountT factor)
  * Incrememt counts indexed by words, starting at node.
  */
 template <class CountT>
-void
-NgramCounts<CountT>::incrementCounts(const VocabIndex *words,
-					unsigned minOrder, CountT factor)
-{
+void NgramCounts<CountT>::incrementCounts(const VocabIndex *words,
+					unsigned minOrder, CountT factor) {
     NgramNode *node = &counts;
 
     for (unsigned i = 0; i < order; i++) {
-	VocabIndex wid = words[i];
+		// 1. 得到当前单词的序号
+		VocabIndex wid = words[i];
 
-	/*
-	 * check of end-of-sentence
-	 */
-        if (wid == Vocab_None) {
-	    break;
-	} else {
-	    node = node->insertTrie(wid);
-	    if (i + 1 >= minOrder) {
-		node->value() += factor;
-	    }
-	}
+		/*
+		* check of end-of-sentence
+		*/
+		// 2. 如果到达句尾，那么结束
+		if (wid == Vocab_None) {
+			break;
+		} else {
+			node = node->insertTrie(wid);
+			if (i + 1 >= minOrder) {
+				node->value() += factor;
+				// cout << __FUNCTION__ << ":" << __LINE__ << " node->value(): " << node->value() << endl;
+			}
+		}
     }
 }
 
+/**
+ * 默认情况下 factor=1
+ * **/
 template <class CountT>
-unsigned int
-NgramCounts<CountT>::countSentence(const VocabIndex *words, CountT factor)
-{
+unsigned int NgramCounts<CountT>::countSentence(const VocabIndex *words, CountT factor) {
     unsigned int start;
-
     for (start = 0; words[start] != Vocab_None; start++) {
         incrementCounts(words + start, 1, factor);
     }
@@ -171,12 +170,14 @@ NgramCounts<CountT>::countSentence(const VocabIndex *words, CountT factor)
     /*
      * keep track of word and sentence counts
      */
-    stats.numWords += start;
+    stats.numWords += start;	// 统计单词的数目
+
+	// 单词的数目去掉<s> 和</s> 这两个词
     if (words[0] == vocab.ssIndex()) {
-	stats.numWords --;
+		stats.numWords --;
     }
     if (start > 0 && words[start-1] == vocab.seIndex()) {
-	stats.numWords --;
+		stats.numWords --;
     }
 
     stats.numSentences ++;
@@ -831,15 +832,14 @@ NgramCounts<CountT>::writeNgram(File &file,
  * Outputs a count trie starting at a given node
  */
 template <class CountT>
-void
-NgramCounts<CountT>::writeNode(
+void NgramCounts<CountT>::writeNode(
     NgramNode &node,		/* the trie node we're at */
     File &file,			/* output file */
     VocabString *words,		/* array of word strings */
     unsigned int level,		/* current trie level */
     unsigned int order,		/* target trie level */
-    Boolean sorted)		/* produce sorted output */
-{
+    Boolean sorted) {		/* produce sorted output */
+
     NgramNode *child;
     VocabIndex wid;
 
@@ -850,36 +850,34 @@ NgramCounts<CountT>::writeNode(
      * appending their word strings to the buffer
      */
     while (!file.error() && (child = iter.next(wid))) {
-	VocabString word = vocab.getWord(wid);
+		VocabString word = vocab.getWord(wid);
 
-	if (word == 0) {
-	   cerr << "undefined word index " << wid << "\n";
-	   continue;
-	}
+		if (word == 0) {
+			cerr << "undefined word index " << wid << "\n";
+			continue;
+		}
 
-	words[level-1] = word;
+		words[level-1] = word;
 
-	/*
-	 * If this is the final level, print out the ngram and the count.
-	 * Otherwise set up another level of recursion.
-	 */
-	if (order == 0 || level == order) {
-	   words[level] = 0;
-	   Vocab::write(file, words);
-	   file.fprintf("\t%s\n", countToString(child->value()));
-	} 
+		/*
+		* If this is the final level, print out the ngram and the count.
+		* Otherwise set up another level of recursion.
+		*/
+		if (order == 0 || level == order) {
+			words[level] = 0;
+			Vocab::write(file, words);
+			file.fprintf("\t%s\n", countToString(child->value()));
+		} 
 	
-	if (order == 0 || level < order) {
-	   writeNode(*child, file, words, level + 1,
-			order, sorted);
-	}
+		if (order == 0 || level < order) {
+			writeNode(*child, file, words, level + 1,
+					order, sorted);
+		}
     }
 }
 
 template <class CountT>
-void
-NgramCounts<CountT>::write(File &file, unsigned int order, Boolean sorted)
-{
+void NgramCounts<CountT>::write(File &file, unsigned int order, Boolean sorted) {
     VocabString *buffer = TLSW_GET_ARRAY(writeBufferTLS);
     writeNode(counts, file, buffer, 1, order, sorted);
 }

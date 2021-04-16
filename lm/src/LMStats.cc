@@ -49,58 +49,65 @@ static TLSW_ARRAY(VocabString, countStringWords, maxWordsPerLine + 1);
 // parse strings into words and update stats
 // weighted == 1 indicates each line begins with a count weight
 // weighted == 2 indicates each line end with a count weight
-unsigned int
-LMStats::countString(char *sentence, unsigned weighted)
-{
+// 解析句子内容
+unsigned int LMStats::countString(char *sentence, unsigned weighted) {
     unsigned int howmany;
     VocabString *words = TLSW_GET_ARRAY(countStringWords);
     
+	// 1. 解析得到单词的数目，最多一个句子只能有maxWordsPerLine 个词
     howmany = vocab.parseWords(sentence, words, maxWordsPerLine + 1);
 
+	// 2. 如果单词的数目是 maxWordsPerLine，目前是5000
+	// cout << "howmany: " << howmany << ", weighted: " << weighted << endl;
     if (howmany == maxWordsPerLine + 1) {
-	return 0;
+		return 0;
     } else {
-	if (weighted == 1) {
-	    return countSentence(words + 1, words[0]);
-	} else if (weighted >= 2) {
-	    VocabString weightString = words[howmany - 1];
-	    words[howmany - 1] = 0;
-	    return countSentence(words, weightString);
-	} else {
-	    return countSentence(words);
-	}
+		if (weighted == 1) {
+			return countSentence(words + 1, words[0]);
+		} else if (weighted >= 2) {
+			VocabString weightString = words[howmany - 1];
+			words[howmany - 1] = 0;
+			return countSentence(words, weightString);
+		} else {
+			// // 这里默认权重都是1
+			// for (int i = 0; i < howmany; i++) {
+			// 	cout << "words: " << words[i] << endl;
+			// }
+			return countSentence(words);
+		}
     }
 }
 
-void
-LMStats::freeThread() 
-{
+void LMStats::freeThread() {
     TLSW_FREE(countStringWords);
 }
 
 // parse file into sentences and update stats
-unsigned int
-LMStats::countFile(File &file, unsigned weighted)
-{
+/**
+ * 解析训练语料，并且更新统计数据
+ * **/
+unsigned int LMStats::countFile(File &file, unsigned weighted) {
+	
     unsigned numWords = 0;
     char *line;
 
     while ((line = file.getline())) {
-	unsigned int howmany = countString(line, weighted);
+		unsigned int howmany = countString(line, weighted);
 
-	/*
-	 * Since getline() returns only non-empty lines,
-	 * a return value of 0 indicates some sort of problem.
-	 */
-	if (howmany == 0) {
-	    file.position() << (weighted ? "illegal count weight or " : "")
-			    << "line too long?\n";
-	} else {
-	    numWords += howmany;
-	}
+		/*
+		* Since getline() returns only non-empty lines,
+		* a return value of 0 indicates some sort of problem.
+		*/
+		if (howmany == 0) {
+			file.position() << (weighted ? "illegal count weight or " : "")
+					<< "line too long?\n";
+		} else {
+			numWords += howmany;
+		}
     }
+
     if (debug(DEBUG_PRINT_TEXTSTATS)) {
-	file.position(dout()) << this -> stats;
+		file.position(dout()) << this -> stats;
     }
     return numWords;
 }

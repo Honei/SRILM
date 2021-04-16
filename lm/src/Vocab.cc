@@ -36,20 +36,24 @@ TLSW_DEF(Vocab*, Vocab::outputVocabTLS);
 /* implicit parameter to compare() */
 TLSW_DEF(Vocab*, Vocab::compareVocabTLS);
 
-void
-Vocab::setOutputVocab(Vocab *v) {
+void Vocab::setOutputVocab(Vocab *v) {
     Vocab* &output = TLSW_GET(outputVocabTLS);
     output = v;
 }
 
-void
-Vocab::setCompareVocab(Vocab *v) {
+void Vocab::setCompareVocab(Vocab *v) {
     Vocab* &compare = TLSW_GET(compareVocabTLS);
     compare = v;
 }
 
-Vocab::Vocab(VocabIndex start, VocabIndex end)
-    : byIndex(start), nextIndex(start), maxIndex(end), _metaTag(0) {
+/**
+ * 词典的构造函数
+ * **/
+Vocab::Vocab(VocabIndex start, VocabIndex end) : 
+	byIndex(start), 
+	nextIndex(start), 
+	maxIndex(end), 
+	_metaTag(0) {
     /*
      * Vocab_None is both the non-index value and the end-token
      * for key sequences used with Tries.  Both need to be
@@ -77,6 +81,8 @@ Vocab::Vocab(VocabIndex start, VocabIndex end)
 
     /*
      * set some special vocabulary tokens to their defaults
+	 * 默认情况下降 <unk> <s> </s> <-pau-> 这几个词在刚开始的时候都添加到词典中
+	 * 所有的单词的序号从4开始标记
      */
     _unkIndex = addWord(Vocab_Unknown);
     _ssIndex = addWord(Vocab_SentStart);
@@ -85,6 +91,7 @@ Vocab::Vocab(VocabIndex start, VocabIndex end)
 
     /*
      * declare some known non-events
+	 * 将单词<s> 和 <-pau-> 标记为 NonEvent 类型
      */
     addNonEvent(_ssIndex);
     addNonEvent(_pauseIndex);
@@ -215,24 +222,25 @@ VocabIndex Vocab::addWordAlias(VocabIndex word, VocabString name)
 }
 
 // declare word to be a non-event
-VocabIndex
-Vocab::addNonEvent(VocabIndex word)
-{
+/**
+ * 将该单词标记为 non-event 类型，并且返回被标记的单词
+ * **/
+VocabIndex Vocab::addNonEvent(VocabIndex word) {
     /* 
      * First make sure the word is already defined
+	 * 如果这个单词没有存在词典中，那么返回一个 Vocab_None 的序号
      */
     if (getWord(word) == 0) {
-	return Vocab_None;
+		return Vocab_None;
     } else {
-	*nonEventMap.insert(word) = 1;
-	return word;
+		// 这个单词存在词典中，那么 non-event 队列中插入该单词
+		*nonEventMap.insert(word) = 1;
+		return word;
     }
 }
 
 // declare a set of non-events
-Boolean
-Vocab::addNonEvents(Vocab &nonevents)
-{
+Boolean Vocab::addNonEvents(Vocab &nonevents) {
     VocabIter viter(nonevents);
     Boolean ok = true;
 
@@ -463,12 +471,13 @@ unsigned int Vocab::parseWords(char *sentence, VocabString *words, unsigned int 
 	 i < max && word != 0;
 	 i++, word = MStringTokUtil::strtok_r(0, wordSeparators, &strtok_ptr)) {
 		words[i] = word;
+		//cout << "words[" << i << "] is " << words[i] << endl; 
     }
 
     if (i < max) {
 		words[i] = 0;
     }
-
+	
 	// 返回分割的单词的数目
     return i;
 }

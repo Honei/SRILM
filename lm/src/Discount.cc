@@ -19,22 +19,24 @@ static char RcsId[] = "@(#)$Header: /home/srilm/CVS/srilm/lm/src/Discount.cc,v 1
 #ifdef INSTANTIATE_TEMPLATES
 INSTANTIATE_ARRAY(double);
 #endif
+/*
+ * Debug levels used here
+ */
+#define DEBUG_ESTIMATE_DISCOUNT	1
 
 /*
  * Determine the true vocab size, i.e., the number of true event
  * tokens, by enumeration. Used in various smoothing methods.
  */
-unsigned
-Discount::vocabSize(Vocab &vocab)
-{
+unsigned Discount::vocabSize(Vocab &vocab) {
     VocabIter viter(vocab);
     VocabIndex wid;
 
     unsigned total = 0;
     while (viter.next(wid)) {
-	if (!vocab.isNonEvent(wid)) {
-	    total ++;
-	}
+		if (!vocab.isNonEvent(wid)) {
+			total ++;
+		}
     }
 
     return total;
@@ -43,19 +45,18 @@ Discount::vocabSize(Vocab &vocab)
 /*
  * Good-Turing discounting
  */
-GoodTuring::GoodTuring(unsigned mincount, unsigned maxcount)
-   : minCount(mincount), maxCount(maxcount), discountCoeffs(0)
-{
+GoodTuring::GoodTuring(unsigned mincount, unsigned maxcount): 
+		minCount(mincount), 
+   		maxCount(maxcount), 
+		discountCoeffs(0) {
    /*
     * a zero count cannot be discounted
+	* 折扣系数
     */
-   discountCoeffs[0] = 1.0;
+	cout << "Good-Turing discount, minCount: " << minCount << ", maxCount: " << maxCount << endl;
+	discountCoeffs[0] = 1.0;
 }
 
-/*
- * Debug levels used here
- */
-#define DEBUG_ESTIMATE_DISCOUNT	1
 
 /*
  * GT discounting uses the formula
@@ -64,17 +65,15 @@ GoodTuring::GoodTuring(unsigned mincount, unsigned maxcount)
  *
  * where n_c is the count of count c .
  */
-double
-GoodTuring::discount(Count count, Count totalCount, Count observedVocab)
-{
+double GoodTuring::discount(Count count, Count totalCount, Count observedVocab) {
     if (count <= 0) {
-	return 1.0;
+		return 1.0;
     } else if (count < minCount) {
-	return 0.0;
+		return 0.0;
     } else if (count > maxCount) {
-	return 1.0;
+		return 1.0;
     } else {
-	return discountCoeffs[count];
+		return discountCoeffs[count];
     }
 }
 
@@ -82,38 +81,34 @@ GoodTuring::discount(Count count, Count totalCount, Count observedVocab)
  * GT Discounting is effectively disabled if the upper cutoff is 0 or less
  * and the minimum count is no greater than 1 (i.e., no ngrams are excluded).
  */
-Boolean
-GoodTuring::nodiscount()
-{
+Boolean GoodTuring::nodiscount() {
     return (minCount <= 1 && maxCount <= 0);
 }
 
 /*
  * Write all internal parameters to file
+ * 将古德-图灵算法的结果输出到文件中
  */
-void
-GoodTuring::write(File &file)
-{
+void GoodTuring::write(File &file) {
     file.fprintf("mincount %s\n", countToString(minCount));
     file.fprintf("maxcount %s\n", countToString(maxCount));
 
     for (unsigned i = 1; !file.error() && i <= maxCount; i++) {
-	file.fprintf("discount %u %.*lg\n", i, Prob_Precision, discountCoeffs[i]);
+		cout << "discount " << i << " " << Prob_Precision << " " << discountCoeffs[i] << endl;
+		file.fprintf("discount %u %.*lg\n", i, Prob_Precision, discountCoeffs[i]);
     }
 }
 
 /*
  * Read parameters back from file
  */
-Boolean
-GoodTuring::read(File &file)
-{
+Boolean GoodTuring::read(File &file) {
     char *line;
 
     while ((line = file.getline())) {
-	char buffer[100];
-	unsigned count;
-	double coeff;
+		char buffer[100];
+		unsigned count;
+		double coeff;
 	
 	if (sscanf(line, "mincount %99s", buffer) == 1 &&
 	    stringToCount(buffer, minCount))
@@ -131,7 +126,7 @@ GoodTuring::read(File &file)
 	     * Zero all old discount coeffs
 	     */
 	    for (Count n = 0; n <= maxCount; n++) {
-		discountCoeffs[n] = 0.0;
+			discountCoeffs[n] = 0.0;
 	    }
 	} else if (sscanf(line, "discount %u %lf", &count, &coeff) == 2) {
 	    /*
@@ -172,6 +167,11 @@ GoodTuring::read(File &file)
  *	d(c) = (c+1)/c * n_(c+1)/n_c
  */
 Boolean GoodTuring::estimate(NgramStats &counts, unsigned order) {
+	if (debug(DEBUG_ESTIMATE_DISCOUNT)) {
+		dout() << __FILE__ <<"::" << __FUNCTION__  << "::" << __LINE__ << " GoodTruing start to estimate" << endl;
+	}
+
+	// 1. 这个数组中记录了n-gram 中出现 r 词的文法的数目
     Array<Count> countOfCounts;
 
     /*
@@ -184,72 +184,103 @@ Boolean GoodTuring::estimate(NgramStats &counts, unsigned order) {
     NgramsIter iter(counts, wids, order);
     NgramCount *count;
     Count i;
-
+	
+	// 2. 这里 maxCount 限制了最多统计出现 maxCount + 1 次的文法
     for (i = 0; i <= maxCount + 1; i++) {
-	countOfCounts[i]  = 0;
+		countOfCounts[i]  = 0;
     }
 
+	// 3. 统计词典中出现 r 次的文法的数目 n_r
     while ((count = iter.next())) {
-	if (counts.vocab.isNonEvent(wids[order - 1])) {
-	    continue;
-	} else if (counts.vocab.isMetaTag(wids[order - 1])) {
-	    unsigned type = counts.vocab.typeOfMetaTag(wids[order - 1]);
-
-	    /*
-	     * process count-of-count
-	     */
-	    if (type > 0 && type <= maxCount + 1) {
-		countOfCounts[type] += *count;
-	    }
-	} else if (*count <= maxCount + 1) {
-	    countOfCounts[*count] ++;
-	}
-    }
-
-    if (debug(DEBUG_ESTIMATE_DISCOUNT)) {
-	dout() << "Good-Turing discounting " << order << "-grams\n";
-	for (i = 0; i <= maxCount + 1; i++) {
-	    dout() << "GT-count [" << i << "] = " << countOfCounts[i] << endl;
-	}
-    }
-
-    if (countOfCounts[1] == 0) {
-	cerr << "warning: no singleton counts\n";
-	maxCount = 0;
-    }
-
-    while (maxCount > 0 && countOfCounts[maxCount + 1] == 0) {
-	cerr << "warning: count of count " << maxCount + 1 << " is zero "
-	     << "-- lowering maxcount\n";
-	maxCount --;
-    }
-
-    if (maxCount <= 0) {
-	cerr << "GT discounting disabled\n";
-    } else {
-	double commonTerm = (maxCount + 1) *
-				(double)countOfCounts[maxCount + 1] /
-				    (double)countOfCounts[1];
-
-	for (i = 1; i <= maxCount; i++) {
-	    double coeff;
-
-	    if (countOfCounts[i] == 0) {
-		cerr << "warning: count of count " << i << " is zero\n";
-		coeff = 1.0;
-	    } else {
-		double coeff0 = (i + 1) * (double)countOfCounts[i+1] /
-					    (i * (double)countOfCounts[i]);
-		coeff = (coeff0 - commonTerm) / (1.0 - commonTerm);
-		if (!isfinite(coeff) || coeff <= Prob_Epsilon || coeff0 > 1.0) {
-		    cerr << "warning: discount coeff " << i
-			 << " is out of range: " << coeff << "\n";
-		    coeff = 1.0;
+		if (debug(DEBUG_ESTIMATE_DISCOUNT)) {
+			dout() << __FILE__ <<"::" << __FUNCTION__  << "::" << __LINE__ 
+					<< " word: " << counts.vocab.getWord(wids[order-1]) << ", count: " << *count << endl;
 		}
-	    }
-	    discountCoeffs[i] = coeff;
-	}
+		if (counts.vocab.isNonEvent(wids[order - 1])) {
+			if (debug(DEBUG_ESTIMATE_DISCOUNT)) {
+				dout() << __FILE__ <<"::" << __FUNCTION__  << "::" << __LINE__ 
+						<< " word: " << counts.vocab.getWord(wids[order-1]) << ", is NonEvent " 
+						<< endl << endl;
+			}
+			continue;
+		} else if (counts.vocab.isMetaTag(wids[order - 1])) {
+
+			unsigned type = counts.vocab.typeOfMetaTag(wids[order - 1]);
+			if (debug(DEBUG_ESTIMATE_DISCOUNT)) {
+				dout() << __FILE__ <<"::" << __FUNCTION__  << "::" << __LINE__ 
+						<< " word: " << counts.vocab.getWord(wids[order-1]) << ", is isMetaTag, type is" << type << endl;
+			}
+			/*
+			* process count-of-count
+			*/
+			if (type > 0 && type <= maxCount + 1) {
+				countOfCounts[type] += *count;
+			}
+		} else if (*count <= maxCount + 1) {
+	    	countOfCounts[*count] ++;
+			if (debug(DEBUG_ESTIMATE_DISCOUNT)) {
+				dout() << __FILE__ <<"::" << __FUNCTION__  << "::" << __LINE__ 
+						<< " word: " << counts.vocab.getWord(wids[order-1]) << ", is less than maxCount " << maxCount
+						<< " countOfCounts[" << *count << "] is " << countOfCounts[*count] << endl;
+			}
+		}
+
+		if (debug(DEBUG_ESTIMATE_DISCOUNT)) {
+			dout() << endl;
+		}
     }
+
+	// 4. 打印出现 r 次文法的数目
+    if (debug(DEBUG_ESTIMATE_DISCOUNT)) {
+		dout() << "Good-Turing discounting " << order << "-grams\n";
+		for (i = 0; i <= maxCount + 1; i++) {
+			dout() << "GT-count [" << i << "] = " << countOfCounts[i] << endl;
+		}
+    }
+	
+	// 5. 如果出现1次的文法数目为0，那么这里不会计算古德-图灵算法
+	//    因为古德-图灵算法是将 (n_1/N) 的概率分给未出现的词
+	//    如果 n_1 = 0，那么就不进行分配
+    if (countOfCounts[1] == 0) {
+		cerr << "warning: no singleton counts\n";
+		maxCount = 0;
+    }
+
+	// 6. 重新得到出现最大次数 maxCount
+    while (maxCount > 0 && countOfCounts[maxCount + 1] == 0) {
+		cerr << "warning: count of count " << maxCount + 1 << " is zero "
+			<< "-- lowering maxcount\n";
+		maxCount --;
+    }
+
+	// 7. 如果 maxCount=0，不使用古德-图灵算法进行平滑
+    if (maxCount <= 0) {
+		cerr << "GT discounting disabled\n";
+    } else {
+		double commonTerm = (maxCount + 1) *
+					(double)countOfCounts[maxCount + 1] /
+						(double)countOfCounts[1];
+		// 7.2 依次遍历出现 i 次的文法
+		for (i = 1; i <= maxCount; i++) {
+			double coeff;
+
+			if (countOfCounts[i] == 0) {
+				cerr << "warning: count of count " << i << " is zero\n";
+				coeff = 1.0;
+			} else {
+				double coeff0 = (i + 1) * (double)countOfCounts[i+1] /
+								(i * (double)countOfCounts[i]);
+				coeff = (coeff0 - commonTerm) / (1.0 - commonTerm);
+				if (!isfinite(coeff) || coeff <= Prob_Epsilon || coeff0 > 1.0) {
+					cerr << "warning: discount coeff " << i
+					<< " is out of range: " << coeff << "\n";
+					coeff = 1.0;
+				}
+			}
+			// 这里重新计算每个单词的概率
+			discountCoeffs[i] = coeff;
+		} // for 
+    }// else
 
     return true;
 }
@@ -267,8 +298,7 @@ Boolean GoodTuring::estimate(NgramStats &counts, unsigned order) {
  *  performed.
  */
 
-double NaturalDiscount::discount(Count count, Count totalCount, Count observedVocab)
-{
+double NaturalDiscount::discount(Count count, Count totalCount, Count observedVocab) {
     double n = totalCount;
     double q = observedVocab;
 

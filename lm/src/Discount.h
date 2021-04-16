@@ -92,9 +92,10 @@ protected:
 /*
  * GoodTuring --
  *	The standard discounting method based on count of counts
+ * 古德-图灵平滑算法是 n-gram 中标准的平滑算法
+ * 《自然语言处理综论》
  */
-class GoodTuring: public Discount
-{
+class GoodTuring: public Discount {
 public:
     GoodTuring(unsigned mincount = GT_defaultMinCount,
 	       unsigned maxcount = GT_defaultMaxCount);
@@ -105,6 +106,9 @@ public:
     void write(File &file);
     Boolean read(File &file);
 
+    /**
+     * 平滑算法的平滑接口
+     * **/
     Boolean estimate(NgramStats &counts, unsigned order);
 
 protected:

@@ -66,8 +66,9 @@ public:
 	{ return countSentence(word, (CountT)1); };
     virtual unsigned countSentence(const VocabString *word, const char *factor);
     virtual unsigned countSentence(const VocabString *word, CountT factor);
-    virtual unsigned countSentence(const VocabIndex *word)
-	{ return countSentence(word, (CountT)1); };
+    virtual unsigned countSentence(const VocabIndex *word) { 
+        return countSentence(word, (CountT)1); 
+    };
     virtual unsigned countSentence(const VocabIndex *word, CountT factor);
 
     void incrementCounts(const VocabIndex *words,
@@ -79,7 +80,10 @@ public:
     						Boolean limitVocab = false);
     Boolean readMinCounts(File &file, unsigned order, Count *minCounts,
     						Boolean limitVocab = false);
-    void write(File &file) { write(file, order); };
+    // 保存文件
+    void write(File &file) { 
+        write(file, order); 
+    };
     void write(File &file, unsigned int order, Boolean sorted = false);
     Boolean writeBinary(File &file) { return writeBinary(file, order); };
     Boolean writeBinary(File &file, unsigned order);
@@ -183,8 +187,8 @@ typedef unsigned long NgramCount;
 
 class NgramStats: public NgramCounts<NgramCount> {
 public:
-    NgramStats(Vocab &vocab, unsigned int order)
-	: NgramCounts<NgramCount>(vocab, order) {
+    NgramStats(Vocab &vocab, unsigned int order) : 
+        NgramCounts<NgramCount>(vocab, order) {
 
     };
     virtual ~NgramStats() {

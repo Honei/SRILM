@@ -44,8 +44,7 @@ const unsigned defaultNgramOrder = 3;
 
 class NgramBayesMix;				/* forward declaration */
 
-class Ngram: public LM
-{
+class Ngram: public LM {
     friend class NgramBOsIter;
 
 public:

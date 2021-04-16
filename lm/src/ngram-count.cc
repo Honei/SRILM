@@ -71,7 +71,7 @@ static int knCountsModified = 0;
 static int knCountsModifyAtEnd = 0;
 static int interpolate[maxorder+1] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
-static char *gtFile[maxorder+1];
+static char *gtFile[maxorder+1];	// gt 算法
 static char *knFile[maxorder+1];
 static char *lmFile = 0;	// 语言模型文件
 static int writeBinaryLM = 0;
@@ -308,19 +308,18 @@ static Boolean copyFile(File &in, File &out) {
     char *line;
 
     while ((line = in.getline())) {
-	out.fputs(line);
+		out.fputs(line);
     }
     return !(in.error());
 }
 
 /********************开始位置************************************/
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
     setlocale(LC_CTYPE, "");
     setlocale(LC_COLLATE, "");
 
-    Boolean written = false;
+    Boolean written = false;	
 	// 1. 解析命令行参数
     Opt_Parse(argc, argv, options, Opt_Number(options), 0);
 
@@ -350,9 +349,11 @@ int main(int argc, char **argv)
 		exit(2);
     }
 
+	// 创建一个词典指针，用来保存词典信息
     Vocab *vocab = tagged ? new TaggedVocab : new Vocab;
     assert(vocab);
 
+	// 添加词典配置，默认去掉 unk，并且所有的词不转换为小写
     vocab->unkIsWord() = keepunk ? true : false;
     vocab->toLower() = toLower ? true : false;
 
@@ -366,6 +367,7 @@ int main(int argc, char **argv)
 
     /*
      * Meta tag is used to input count-of-count information
+	 * 统计用于计算 count-of-count 的标签
      */
     if (metaTag) {
 		vocab->metaTag() = metaTag;
@@ -381,6 +383,7 @@ int main(int argc, char **argv)
     /*
      * The skip-ngram model requires count order one higher than
      * the normal model.
+	 * n-gram 的统计对象，默认情况下是： new NgramStats(*vocab, skipNgram ? order + 1 : order);
      */
     NgramStats *intStats =
 	(stopWords != 0) ? new StopNgramStats(*vocab, *stopWords, order) :
@@ -401,6 +404,7 @@ int main(int argc, char **argv)
 
     USE_STATS(debugme(debug));
 
+	// vocabFile 读取词典文件
     if (vocabFile) {
 		File file(vocabFile, "r");
 		USE_STATS(vocab.read(file));
@@ -444,7 +448,9 @@ int main(int argc, char **argv)
     }
 
     if (readFile) {
-		// 读取统计数据
+		/*****************************************************************************************************************************************************/
+		/**********************************************读取统计数据，这是用于训练 n-gram 模型**********************************************/ 
+		/*****************************************************************************************************************************************************/
 		cout << "read train file from: " << readFile << endl;
 		File file(readFile, "r");
 		unsigned countOrder = USE_STATS(getorder());
@@ -475,14 +481,18 @@ int main(int argc, char **argv)
 		}
     }
 	
-	// 传入训练数据，使用-text参数
+	
     if (textFile) {
-		File file(textFile, "r");
+		/*****************************************************************************************************************************************************/
+		/**********************************************传入训练数据，使用-text参数，这是为了用于得到训练文本的统计数据**********************************************/ 
+		/*****************************************************************************************************************************************************/
 		cout << "read textCount file from " << textFile << endl;
+		File file(textFile, "r");
 		if (writeTextFile) {
 			File outFile(writeTextFile, "w");
 			copyFile(file, outFile);
 		} else {
+			cout << "start to countFile " << endl;
 			USE_STATS(countFile(file, textFileHasWeightsLast ? 2 : (textFileHasWeights ? 1 : 0)));
 		}
     }
@@ -620,7 +630,11 @@ int main(int argc, char **argv)
 			discount = new ModKneserNey((unsigned)gtmin[useorder], knCountsModified, knCountsModifyAtEnd);
 			assert(discount);
 		} else if (gtFile[useorder] || (i <= order && lmFile)) {
-			if (debug) cerr << "using GoodTuring for " << i << "-grams";
+			if (debug) { 
+				cerr << "using GoodTuring for " << i << "-grams" << endl;
+			}
+			// 在使用默认的古德-图灵平滑算法的时候，先定了最小出现的次数和最大出现的次数
+			// 这里默认算法的效果可能和 gtmin[userorder] 和 gtmax[userorder] 有关，可以调节这个参数
 			discount = new GoodTuring((unsigned)gtmin[useorder], gtmax[useorder]);
 			assert(discount);
 		}
@@ -663,7 +677,11 @@ int main(int argc, char **argv)
 				* a file was specified, but no language model is
 				* being estimated.
 				*/
+				/*****************************************************************************************************************************************************/
+				/**********************************************通常这里开始估计 n-gram 模型**********************************************/ 
+				/*****************************************************************************************************************************************************/
 				cout << "Estimate the discount params, useFloatCounts: "<< useFloatCounts << endl;
+				// 1. 得到 n-gram 统计数据
 				if (!(useFloatCounts ? discount->estimate(*floatStats, i) :
 							discount->estimate(*intStats, i))) {
 					cerr << "error in discount estimator for order "
@@ -779,34 +797,36 @@ int main(int argc, char **argv)
 				exit(1);
 			}
     	}
-	if (maxentConvertToArpa) {
-	    Ngram *ngram = lm->getNgramLM();
-	    ngram->debugme(debug);
+	
+		if (maxentConvertToArpa) {
+			Ngram *ngram = lm->getNgramLM();
+			ngram->debugme(debug);
 
-	    /*
-	     * Remove redundant probs (perplexity increase below threshold)
-	     */
-	    if (prune != 0.0) {
-			ngram->pruneProbs(prune, minprune);
-	    }
+			/*
+			* Remove redundant probs (perplexity increase below threshold)
+			*/
+			if (prune != 0.0) {
+				ngram->pruneProbs(prune, minprune);
+			}
 
-	    if (writeBinaryLM) {
-			File file(lmFile, "wb");
-			ngram->writeBinary(file);
-	    } else {
-			File file(lmFile, "w");
-			ngram->write(file);
-	    }
+			if (writeBinaryLM) {
+				File file(lmFile, "wb");
+				ngram->writeBinary(file);
+			} else {
+				File file(lmFile, "w");
+				ngram->write(file);
+			}
 #ifdef DEBUG
-	    delete ngram;
+	    	delete ngram;
 #endif
-	} else {
-	    File file(lmFile, "w");
-	    lm->write(file);
-	}
-	written = true;
+		} else {
+				cout << "write to language model" << endl;
+				File file(lmFile, "w");
+				lm->write(file);
+			}
+		written = true;
 #ifdef DEBUG
-	delete lm;
+		delete lm;
 #endif
     } else if (lmFile) {
         /*
@@ -814,109 +834,115 @@ int main(int argc, char **argv)
 		* either using a default discounting scheme, or the GT parameters
 		* read in from files
 		*/
-	Ngram *lm;
-	
-	if (varPrune != 0.0) {
-	    lm = new VarNgram(*vocab, order, varPrune);
-	    assert(lm != 0);
-	} else if (skipNgram) {
-	    SkipNgram *skipLM =  new SkipNgram(*vocab, order);
-	    assert(skipLM != 0);
+		Ngram *lm;
+		cout <<__FILE__ << "::" << __LINE__ << ":: start to estimate backoff lm model" << endl;
+		if (varPrune != 0.0) {
+			lm = new VarNgram(*vocab, order, varPrune);
+			assert(lm != 0);
+		} else if (skipNgram) {
+			SkipNgram *skipLM =  new SkipNgram(*vocab, order);
+			assert(skipLM != 0);
 
-	    skipLM->maxEMiters = maxEMiters;
-	    skipLM->minEMdelta = minEMdelta;
-	    skipLM->initialSkipProb = skipInit;
+			skipLM->maxEMiters = maxEMiters;
+			skipLM->minEMdelta = minEMdelta;
+			skipLM->initialSkipProb = skipInit;
 
-	    lm = skipLM;
-	} else {
-	    lm = (stopWords != 0) ? new StopNgram(*vocab, *stopWords, order) :
-		       tagged ? new TaggedNgram(*(TaggedVocab *)vocab, order) :
-			  new Ngram(*vocab, order);
-	    assert(lm != 0);
-	}
+			lm = skipLM;
+		} else {
+			cout <<__FILE__ << "::" << __LINE__ << ":: new Ngram modell order is: " << order << endl;
+			lm = (stopWords != 0) ? new StopNgram(*vocab, *stopWords, order) :
+				tagged ? new TaggedNgram(*(TaggedVocab *)vocab, order) :
+				new Ngram(*vocab, order);
+			assert(lm != 0);
+		}
 
-	/*
-	 * Set debug level on LM object
-	 */
-	lm->debugme(debug);
+		/*
+		* Set debug level on LM object
+		*/
+		/*****************************************************************************************************************************************************/
+		/********************************************** 开始处理语言模型的部分  **********************************************/ 
+		/*****************************************************************************************************************************************************/
+		lm->debugme(debug);
 
-	/*
-	 * Read initial LM parameters in case we're doing EM
-	 */
-	if (initLMFile) {
-	    File file(initLMFile, "r");
+		/*
+		* Read initial LM parameters in case we're doing EM
+		*/
+		if (initLMFile) {
+			File file(initLMFile, "r");
 
-	    if (!lm->read(file, limitVocab)) {
-		cerr << "format error in init-lm file\n";
-		exit(1);
-	    }
-	}
+			if (!lm->read(file, limitVocab)) {
+				cerr << "format error in init-lm file\n";
+				exit(1);
+			}
+		}
         
-	if (trustTotals) {
-	    lm->trustTotals() = true;
-	}
-	if (!(useFloatCounts ? lm->estimate(*floatStats, discounts) :
-			       lm->estimate(*intStats, discounts)))
-	{
-	    cerr << "LM estimation failed\n";
-	    exit(1);
-	} else {
-	    /*
-	     * Remove redundant probs (perplexity increase below threshold)
-	     */
-	    if (prune != 0.0) {
-		lm->pruneProbs(prune, minprune);
-	    }
+		if (trustTotals) {
+			lm->trustTotals() = true;
+		}
+		if (!(useFloatCounts ? lm->estimate(*floatStats, discounts) :
+					lm->estimate(*intStats, discounts))) {
+			cerr << "LM estimation failed\n";
+			exit(1);
+		} else {
+			/*
+			* Remove redundant probs (perplexity increase below threshold)
+			*/
+			if (prune != 0.0) {
+				lm->pruneProbs(prune, minprune);
+			}
 
-	    if (writeBinaryLM) {
-		File file(lmFile, "wb");
-		lm->writeBinary(file);
-	    } else {
-		File file(lmFile, "w");
-		lm->write(file);
-	    }
-	}
-	written = true;
+			if (writeBinaryLM) {
+				File file(lmFile, "wb");
+				lm->writeBinary(file);
+			} else {
+				File file(lmFile, "w");
+				lm->write(file);
+			}
+		}
+		written = true;
 
-	// XXX: don't free the lm since this itself may take a long time
-	// and we're going to exit anyways.
-#ifdef DEBUG
-	delete lm;
-#endif
-    }
+		// XXX: don't free the lm since this itself may take a long time
+		// and we're going to exit anyways.
+	#ifdef DEBUG
+		delete lm;
+	#endif
+	}
 
     if (writeVocab) {
-	File file(writeVocab, "w");
-	vocab->write(file);
-	written = true;
+		File file(writeVocab, "w");
+		vocab->write(file);
+		written = true;
     }
 
     if (writeVocabIndex) {
-	File file(writeVocabIndex, "w");
-	vocab->writeIndexMap(file);
-	written = true;
+		File file(writeVocabIndex, "w");
+		vocab->writeIndexMap(file);
+		written = true;
     }
 
     /*
      * Write counts of a specific order
+	 * 输出统计数据
      */
     for (i = 1; i <= maxorder; i++) {
-	if (writeFile[i]) {
-	    File file(writeFile[i], "w");
-	    USE_STATS(write(file, i, sortNgrams));
-	    written = true;
-	}
+		//cout << "write the " << i << " order content, maxorder is:" << maxorder << endl;
+		if (writeFile[i]) {
+			cout << "write the order: " << i << endl;
+			File file(writeFile[i], "w");
+			USE_STATS(write(file, i, sortNgrams));
+			written = true;
+		}
     }
 
     /*
      * Write binary counts
      */
     if (writeBinaryFile) {
-	File file(writeBinaryFile, "wb");
-	if (!USE_STATS(writeBinary(file, writeOrder))) {
-	    cerr << "error writing " << writeBinaryFile << endl;
-	}
-	written = true;
+		File file(writeBinaryFile, "wb");
+		if (!USE_STATS(writeBinary(file, writeOrder))) {
+			cerr << "error writing " << writeBinaryFile << endl;
+		}
+		written = true;
     }
 
     /*
@@ -927,8 +953,9 @@ int main(int argc, char **argv)
      * if KN discounting was used.
      */
     if (writeFile[0] || !written) {
-	File file(writeFile[0] ? writeFile[0] : "-", "w");
-	USE_STATS(write(file, writeOrder, sortNgrams));
+		cout << "write the count content with writeOrder: " << writeOrder << endl;
+		File file(writeFile[0] ? writeFile[0] : "-", "w");
+		USE_STATS(write(file, writeOrder, sortNgrams));
     }
 
 #ifdef DEBUG
@@ -936,8 +963,8 @@ int main(int argc, char **argv)
      * Free all objects
      */
     for (i = 0; i < order; i ++) {
-	delete discounts[i];
-	discounts[i] = 0;
+		delete discounts[i];
+		discounts[i] = 0;
     }
     delete [] discounts;
 
@@ -945,7 +972,7 @@ int main(int argc, char **argv)
     delete floatStats;
 
     if (stopWords != 0) {
-	delete stopWords;
+		delete stopWords;
     }
 
     delete vocab;
