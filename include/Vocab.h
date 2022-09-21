@@ -100,19 +100,33 @@ using namespace std;
 #include "MemStats.h"
 #include "TLSWrapper.h"
 
+/**
+    Vocab.h Vocab.cc 这两个文件主要提供了一个 Vocab 类用于存储语料中出现的
+    单词， 实现一个单词(VocabString)与其对应的索引(VocabIndex)之间的快捷
+    映射。在语言模型(LM)中需要表示一个单词的时候通常都用相应的索引(VocabIndex),
+    而把单词串存放在 Vocab 类中, 这样能够节省内存空间。
+
+
+    VocabIter 是 Vocab 类的迭代器， 用于迭代访问 Vocab 中的每个单词。
+**/
+
+// 根据宏 USE_SHORT_VOCAB 先定词典序号的数目
+// 默认情况下使用 unsigned int 来标记词典的序号
 #ifdef USE_SHORT_VOCAB
-typedef unsigned short	VocabIndex;
+    typedef unsigned short	VocabIndex;
 #else
-typedef unsigned int	VocabIndex;
+    typedef unsigned int	VocabIndex;
 #endif
+
 typedef const char	*VocabString;
 
+// 单词索引的最大值，用于指示 NULL word，语法上没用明白
 const VocabIndex	Vocab_None = (VocabIndex)-1;
 
-const VocabString	Vocab_Unknown = "<unk>";
-const VocabString	Vocab_SentStart = "<s>";
-const VocabString	Vocab_SentEnd = "</s>";
-const VocabString	Vocab_Pause = "-pau-";
+const VocabString	Vocab_Unknown = "<unk>";            // 未登录词,oov
+const VocabString	Vocab_SentStart = "<s>";            // 开始位置<BOS>
+const VocabString	Vocab_SentEnd = "</s>";             // 结束位置 <EOS>
+const VocabString	Vocab_Pause = "-pau-";              // 停顿
 
 typedef int (*VocabIndexComparator)(VocabIndex, VocabIndex);
 typedef int (*VocabIndicesComparator)(const VocabIndex *, const VocabIndex *);
@@ -153,6 +167,7 @@ public:
         return _pauseIndex; 
     }; /* -pau- index */
 
+    // 判断 unk 是否当做一个词
     virtual Boolean &unkIsWord() { 
         return _unkIsWord; 
     };
@@ -199,7 +214,7 @@ public:
     }; /* meta-count tag */
     virtual Boolean isMetaTag(VocabIndex word) const{ 
         auto mapValue = metaTagMap.find(word);
-        cout << "word idx: " << word << ", mapValue: " << mapValue << endl;
+        //cout << "word idx: " << word << ", mapValue: " << mapValue << endl;
         return metaTagMap.find(word) != 0; 
     };
     virtual unsigned typeOfMetaTag(VocabIndex word) const { 
@@ -277,8 +292,8 @@ public:
 protected:
     LHash<VocabString,VocabIndex> byName;
     Array<VocabString> byIndex;
-    VocabIndex nextIndex;
-    VocabIndex maxIndex;
+    VocabIndex nextIndex;       // 下一个单词的序号
+    VocabIndex maxIndex;        // 最大单词的序号
 
     LHash<VocabIndex, unsigned> nonEventMap;	/* set of non-event words */
     LHash<VocabIndex, unsigned> metaTagMap;	/* maps metatags to their type:

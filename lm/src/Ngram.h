@@ -38,18 +38,22 @@ typedef struct {
     PROB_INDEX_T<VocabIndex,LogP>	probs;	/* word probabilities */
 } BOnode;
 
-typedef Trie<VocabIndex,BOnode> BOtrie;
+typedef Trie<VocabIndex, BOnode> BOtrie;
 
 const unsigned defaultNgramOrder = 3;
 
 class NgramBayesMix;				/* forward declaration */
-
+/**
+ *  这是默认的 n-gram 语言模型
+ * **/
 class Ngram: public LM {
     friend class NgramBOsIter;
 
 public:
     Ngram(Vocab &vocab, unsigned order = defaultNgramOrder);
-    virtual ~Ngram() {};
+    virtual ~Ngram() {
+
+    };
 
     unsigned setorder(unsigned neworder = 0);   /* change/return ngram order */
 
@@ -65,6 +69,10 @@ public:
 
     virtual Boolean read(File &file, Boolean limitVocab = false);
     virtual Boolean write(File &file);
+
+    /**
+     * 将语言模型中第 order 阶的统计数据保存起来
+     * **/
     virtual Boolean writeWithOrder(File &file, unsigned int order);
     Boolean writeBinaryV1(File &file);
 
@@ -118,6 +126,8 @@ public:
 
 protected:
     BOtrie contexts;				/* n-1 gram context trie */
+
+    // 语言模型中最大的阶数
     unsigned int order; 			/* maximal ngram order */
 
     Boolean _skipOOVs;

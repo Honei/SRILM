@@ -38,19 +38,22 @@ typedef struct {
     PROB_INDEX_T<VocabIndex,LogP>	probs;	/* word probabilities */
 } BOnode;
 
-typedef Trie<VocabIndex,BOnode> BOtrie;
+typedef Trie<VocabIndex, BOnode> BOtrie;
 
 const unsigned defaultNgramOrder = 3;
 
 class NgramBayesMix;				/* forward declaration */
-
-class Ngram: public LM
-{
+/**
+ *  这是默认的 n-gram 语言模型
+ * **/
+class Ngram: public LM {
     friend class NgramBOsIter;
 
 public:
     Ngram(Vocab &vocab, unsigned order = defaultNgramOrder);
-    virtual ~Ngram() {};
+    virtual ~Ngram() {
+
+    };
 
     unsigned setorder(unsigned neworder = 0);   /* change/return ngram order */
 

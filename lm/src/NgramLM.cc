@@ -91,9 +91,7 @@ const LogP Ngram_BinaryMagicFloat = (LogP)9.8765432e10;
  * Low level methods to access context (BOW) nodes and probs
  */
 
-void
-Ngram::memStats(MemStats &stats)
-{
+void Ngram::memStats(MemStats &stats) {
     stats.total += sizeof(*this) - sizeof(contexts);
     contexts.memStats(stats);
 
@@ -121,9 +119,13 @@ Ngram::Ngram(Vocab &vocab, unsigned neworder) :
 		_skipOOVs(false), 
 		_trustTotals(false),
       	codebook(0) {
+	// 默认的语言模型
 	if (order < 1) {
 		order = 1;
 	}
+
+	cout << __FILE__ << "::" << __LINE__ << "::"
+		<< "Ngram order: " << order << endl;
 }
 
 unsigned 
@@ -228,9 +230,7 @@ Ngram::removeProb(VocabIndex word, const VocabIndex *context)
 /*
  * Remove all probabilities and contexts from n-gram trie
  */
-void
-Ngram::clear()
-{
+void Ngram::clear() {
     makeArray(VocabIndex, context, order);
 
     BOnode *node;
@@ -239,12 +239,12 @@ Ngram::clear()
      * Remove all ngram probabilities
      */
     for (unsigned i = order; i > 0; i--) {
-	BOnode *node;
-	NgramBOsIter iter(*this, context, i - 1);
-	
-	while ((node = iter.next())) {
-	    node->probs.clear(0);
-	}
+		BOnode *node;
+		NgramBOsIter iter(*this, context, i - 1);
+		
+		while ((node = iter.next())) {
+			node->probs.clear(0);
+		}
     }
     
     /*
@@ -254,11 +254,11 @@ Ngram::clear()
      * the root node, chosen to match the vocabulary.
      */
     if (order > 1) {
-	NgramBOsIter iter(*this, context, 1);
+		NgramBOsIter iter(*this, context, 1);
 
-	while ((node = iter.next())) {
-	    removeBOW(context);
-	}
+		while ((node = iter.next())) {
+			removeBOW(context);
+		}
     }
 }
 
@@ -326,9 +326,7 @@ Ngram::contextBOW(const VocabIndex *context, unsigned length)
  * the context trie only once, finding the maximal ngram and accumulating 
  * backoff weights along the way.
  */
-LogP
-Ngram::wordProbBO(VocabIndex word, const VocabIndex *context, unsigned int clen)
-{
+LogP Ngram::wordProbBO(VocabIndex word, const VocabIndex *context, unsigned int clen) {
     LogP logp = LogP_Zero;
     LogP bow = LogP_One;
     unsigned found = 0;
@@ -337,39 +335,39 @@ Ngram::wordProbBO(VocabIndex word, const VocabIndex *context, unsigned int clen)
     unsigned i = 0;
 
     do {
-	LogP *prob = trieNode->value().probs.find(word);
+		LogP *prob = trieNode->value().probs.find(word);
 
-	if (prob) {
-	    /*
-	     * If a probability is found at this level record it as the 
-	     * most specific one found so far and reset the backoff weight.
-	     */
-	    logp = *prob;
-	    bow = LogP_One;
-	    found = i + 1;
-	} 
+		if (prob) {
+			/*
+			* If a probability is found at this level record it as the 
+			* most specific one found so far and reset the backoff weight.
+			*/
+			logp = *prob;
+			bow = LogP_One;
+			found = i + 1;
+		} 
 
         if  (i >= clen || context[i] == Vocab_None) break;
 
-	BOtrie *next = trieNode->findTrie(context[i]);
-	if (next) {
-	    /*
-	     * Accumulate backoff weights 
-	     */
-	    bow += next->value().bow;
-	    trieNode = next;
-	    i ++;
-	} else {
-	    break;
-	}
+		BOtrie *next = trieNode->findTrie(context[i]);
+		if (next) {
+			/*
+			* Accumulate backoff weights 
+			*/
+			bow += next->value().bow;
+			trieNode = next;
+			i ++;
+		} else {
+			break;
+		}
     } while (1);
 
     if (running() && debug(DEBUG_NGRAM_HITS)) {
-	if (found) {
-	    dout() << "[" << found << "gram]";
-	} else {
-	    dout() << "[OOV]";
-	}
+		if (found) {
+	    	dout() << "[" << found << "gram]";
+		} else {
+	    	dout() << "[OOV]";
+		}
     }
 
     return logp + bow;
@@ -766,95 +764,105 @@ Ngram::read(File &file, Boolean limitVocab)
     return false;
 }
 
-Boolean
-Ngram::write(File &file)
-{
+Boolean Ngram::write(File &file) {
+	cout << __FILE__ << "::" << __FUNCTION__ << "::" << __LINE__ 
+		  << " write the Ngram to the file" << endl;
     if (writeInBinary) {
-	return writeBinaryNgram(file);
+		return writeBinaryNgram(file);
     } else {
-	return writeWithOrder(file, order);
+			cout << __FILE__ << "::" << __FUNCTION__ << "::" << __LINE__ 
+				<< ":: write the text model" << endl;
+		return writeWithOrder(file, order);
     }
 };
 
-Boolean
-Ngram::writeWithOrder(File &file, unsigned order)
-{
+/**
+ * 将语言模型中第 order 阶的统计数据保存起来
+ * **/
+Boolean Ngram::writeWithOrder(File &file, unsigned order) {
     unsigned i;
     Count howmanyNgrams[maxNgramOrder + 1];
     VocabIndex context[maxNgramOrder + 2];
     VocabString ngramWords[maxNgramOrder + 2];
 
+	// 1. 如果传入的阶数超过了最大结束，则以当前的最大阶数为准
     if (order > maxNgramOrder) {
-	order = maxNgramOrder;
+		order = maxNgramOrder;
     }
 
+	// 2. 语言模型文件以 data 开头
     file.fprintf("\n\\data\\\n");
 
+	// 3. 依次保存每个阶数的单词数目
     for (i = 1; i <= order; i++ ) {
-	howmanyNgrams[i] = numNgrams(i);
-	file.fprintf("ngram %d=%lld\n", i, (long long)howmanyNgrams[i]);
+		howmanyNgrams[i] = numNgrams(i);
+		file.fprintf("ngram %d=%lld\n", i, (long long)howmanyNgrams[i]);
     }
 
+	// 4. 语言模型中给出开始保存 n-gram 的详细内容
     for (i = 1; i <= order; i++ ) {
-	file.fprintf("\n\\%d-grams:\n", i);
+
+		// 4.1 每个 n-gram 会输出 \i-gram:
+		file.fprintf("\n\\%d-grams:\n", i);
 
         if (debug(DEBUG_WRITE_STATS)) {
-	    dout() << "writing " << howmanyNgrams[i] << " "
-		   << i << "-grams\n";
-	}
+	    	dout() << "writing " << howmanyNgrams[i] << " "
+		   		   << i << "-grams\n";
+		}
         
-	NgramBOsIter iter(*this, context + 1, i - 1, vocab.compareIndex());
-	BOnode *node;
+		NgramBOsIter iter(*this, context + 1, i - 1, vocab.compareIndex());
+		BOnode *node;
 
-	while ((node = iter.next())) {
+		while ((node = iter.next())) {
 
-	    vocab.getWords(context + 1, ngramWords, maxNgramOrder + 2);
-	    Vocab::reverse(ngramWords);
+			vocab.getWords(context + 1, ngramWords, maxNgramOrder + 2);
+			Vocab::reverse(ngramWords);
 
-	    NgramProbsIter piter(*node, vocab.compareIndex());
-	    VocabIndex pword;
-	    LogP *prob;
+			NgramProbsIter piter(*node, vocab.compareIndex());
+			VocabIndex pword;
+			LogP *prob;
 
-	    while ((prob = piter.next(pword))) {
-		if (file.error()) {
-		    return false;
+			while ((prob = piter.next(pword))) {
+				if (file.error()) {
+					return false;
+				}
+
+				if (codebook) {
+					file.fprintf("%u\t", codebook->getBin(*prob));
+				} else {
+					file.fprintf("%.*lg\t", LogP_Precision,
+							(double)(*prob == LogP_Zero ?
+									LogP_PseudoZero : *prob));
+				}
+
+				/*
+				* Append the final word to the ngram, then output it
+				*/
+				ngramWords[i - 1] = vocab.getWord(pword);
+				ngramWords[i] =  0;
+				Vocab::write(file, ngramWords);
+
+				if (i < order) {
+					context[0] = pword;
+
+					LogP *bow = findBOW(context);
+					if (bow) {
+						if (codebook) {
+							file.fprintf("\t%u", codebook->getBin(*bow));
+						} else {
+							file.fprintf("\t%.*lg", LogP_Precision,
+									(double)(*bow == LogP_Zero ?
+										LogP_PseudoZero : *bow));
+						}
+					}
+				}
+
+				file.fprintf("\n");
+	    	}
 		}
-
-		if (codebook) {
-		    file.fprintf("%u\t", codebook->getBin(*prob));
-		} else {
-		    file.fprintf("%.*lg\t", LogP_Precision,
-				    (double)(*prob == LogP_Zero ?
-						    LogP_PseudoZero : *prob));
-		}
-
-		/*
-		 * Append the final word to the ngram, then output it
-		 */
-		ngramWords[i - 1] = vocab.getWord(pword);
-		ngramWords[i] =  0;
-		Vocab::write(file, ngramWords);
-
-		if (i < order) {
-		    context[0] = pword;
-
-		    LogP *bow = findBOW(context);
-		    if (bow) {
-			if (codebook) {
-			    file.fprintf("\t%u", codebook->getBin(*bow));
-			} else {
-			    file.fprintf("\t%.*lg", LogP_Precision,
-					    (double)(*bow == LogP_Zero ?
-							LogP_PseudoZero : *bow));
-			}
-		    }
-		}
-
-		file.fprintf("\n");
-	    }
-	}
     }
 
+	// 语言模型以 \end\结尾
     file.fprintf("\n\\end\\\n");
 
     return true;
@@ -1480,24 +1488,29 @@ Ngram::skipToNextTrie(File &idx, unsigned myOrder)
     return false;
 }
 
-Count
-Ngram::numNgrams(unsigned int order) const
-{
-    if (order < 1) {
-	return 0;
+/**
+ * 返回第 order 阶单词的数目
+ * **/
+Count Ngram::numNgrams(unsigned int order) const {
+    
+	// 1. 如果阶数小于0，那么直接返回0
+	if (order < 1) {
+		return 0;
     } else {
-	Count howmany = 0;
+		Count howmany = 0;
 
-	makeArray(VocabIndex, context, order + 1);
+		makeArray(VocabIndex, context, order + 1);
 
-	NgramBOsIter iter(*this, context, order - 1);
-	BOnode *node;
+		NgramBOsIter iter(*this, context, order - 1);
+		BOnode *node;
 
-	while ((node = iter.next())) {
-	    howmany += node->probs.numEntries();
-	}
+		// 2. 依次统计当前阶数中单词的数目
+		while ((node = iter.next())) {
+			howmany += node->probs.numEntries();
+		}
 
-	return howmany;
+		// 3. 返回当前阶数中单词的数目
+		return howmany;
     }
 }
 
@@ -1643,6 +1656,7 @@ Boolean Ngram::estimate2(NgramCounts<CountType> &stats, Discount **discounts) {
 
     /*
      * Remove all old contexts ...
+	 * 清除老的内容
      */
     clear();
 
@@ -1658,18 +1672,20 @@ Boolean Ngram::estimate2(NgramCounts<CountType> &stats, Discount **discounts) {
     /*
      * Ensure <s> unigram exists (being a non-event, it is not inserted
      * in distributeProb(), yet is assumed by much other software).
+	 * 1. 假设 <s> 的概率是负无穷
      */
     if (vocab.ssIndex() != Vocab_None) {
 		context[0] = Vocab_None;
 		*insertProb(vocab.ssIndex(), context) = LogP_Zero;
     }
 
+	// 2. 依次处理每一阶 n-gram 语言模型
     for (unsigned i = 1; i <= order; i++) {
 		unsigned noneventContexts = 0;
 		unsigned noneventNgrams = 0;
 		unsigned discountedNgrams = 0;
 
-	/*
+		/*
 		* check if discounting is disabled for this round
 		*/
 		Boolean noDiscount =
@@ -1679,6 +1695,7 @@ Boolean Ngram::estimate2(NgramCounts<CountType> &stats, Discount **discounts) {
 
 		/*
 		* modify counts are required by discounting method
+		* 准备第 i 阶的信息
 		*/
 		if (!noDiscount && discounts && discounts[i-1]) {
 			discounts[i-1]->prepareCounts(stats, i, order);
@@ -1698,6 +1715,7 @@ Boolean Ngram::estimate2(NgramCounts<CountType> &stats, Discount **discounts) {
 			* If <unk> is not real word, also skip context that contain
 			* it.
 			*/
+			dout() << " contextCount " << contextCount << endl;
 			if ((i > 1 && context[i-2] == vocab.seIndex()) ||
 				(vocab.isNonEvent(vocab.unkIndex()) &&
 					vocab.contains(context, vocab.unkIndex()))) {
@@ -1709,10 +1727,12 @@ Boolean Ngram::estimate2(NgramCounts<CountType> &stats, Discount **discounts) {
 			* Re-determine if interpolated discounting is in effect.
 			* (This might be modified in the retry loop below.)
 			*/
+			
 			Boolean interpolate =
 				(discounts != 0) &&
 				(discounts[i-1] != 0) &&
 				discounts[i-1]->interpolate;
+			dout() << " interpolate " << interpolate << endl;
 
 			VocabIndex word[2];	/* the follow word */
 			NgramCountsIter<CountType> followIter(stats, context, word, 1);
@@ -1726,245 +1746,251 @@ Boolean Ngram::estimate2(NgramCounts<CountType> &stats, Discount **discounts) {
 			* with the count from the context ngram.
 			*/
 			CountType totalCount = 0;
-			Count observedVocab = 0, min2Vocab = 0, min3Vocab = 0;
+			Count observedVocab = 0, 
+				  min2Vocab = 0, 
+				  min3Vocab = 0;
 			while ((ngramCount = followIter.next())) {
-			if (vocab.isNonEvent(word[0]) ||
-				ngramCount == 0 ||
-				(i == 1 && vocab.isMetaTag(word[0]))) {
-				continue;
-			}
+				// 是否是非正常的词
+				if (vocab.isNonEvent(word[0]) ||
+					ngramCount == 0 ||
+					(i == 1 && vocab.isMetaTag(word[0]))) {
+					continue;
+				}
 
-			if (!vocab.isMetaTag(word[0])) {
-				totalCount += *ngramCount;
-				observedVocab ++;
-				if (*ngramCount >= 2) {
-					min2Vocab ++;
-				}
-				if (*ngramCount >= 3) {
-					min3Vocab ++;
-				}
-			} else {
-				/*
-				* Process meta-counts
-				*/
-				unsigned type = vocab.typeOfMetaTag(word[0]);
-				if (type == 0) {
-					/*
-					* a count total: just add to the totalCount
-					* the corresponding type count can't be known,
-					* but it has to be at least 1
-					*/
+				// 是否是 MetaTag 
+				if (!vocab.isMetaTag(word[0])) {
 					totalCount += *ngramCount;
 					observedVocab ++;
+					if (*ngramCount >= 2) {
+						min2Vocab ++;
+					}
+					if (*ngramCount >= 3) {
+						min3Vocab ++;
+					}
 				} else {
 					/*
-					* a count-of-count: increment the word type counts,
-					* and infer the totalCount
+					* Process meta-counts
 					*/
-					totalCount += type * *ngramCount;
-					observedVocab += (Count)*ngramCount;
-					if (type >= 2) {
-						min2Vocab += (Count)*ngramCount;
+					unsigned type = vocab.typeOfMetaTag(word[0]);
+					dout() << " type " << type << endl;
+					if (type == 0) {
+						/*
+						* a count total: just add to the totalCount
+						* the corresponding type count can't be known,
+						* but it has to be at least 1
+						*/
+						totalCount += *ngramCount;
+						observedVocab ++;
+					} else {
+						/*
+						* a count-of-count: increment the word type counts,
+						* and infer the totalCount
+						*/
+						totalCount += type * *ngramCount;
+						observedVocab += (Count)*ngramCount;
+						if (type >= 2) {
+							min2Vocab += (Count)*ngramCount;
+						}
+						if (type >= 3) {
+							min3Vocab += (Count)*ngramCount;
+						}
 					}
-					if (type >= 3) {
-						min3Vocab += (Count)*ngramCount;
-					}
-		    	}
+				}
+	    	}
+
+			if (i > 1 && trustTotals()) {
+				totalCount = *contextCount;
 			}
-	    }
 
-	    if (i > 1 && trustTotals()) {
-			totalCount = *contextCount;
-	    }
-
-	    if (totalCount == 0) {
-		continue;
-	    }
-
-	    /*
-	     * reverse the context ngram since that's how
-	     * the BO nodes are indexed.
-	     */
-	    Vocab::reverse(context);
-
-	    /*
-	     * Compute the discounted probabilities
-	     * from the counts and store them in the backoff model.
-	     */
-	retry:
-	    followIter.init();
-	    Prob totalProb = 0.0;
-
-	    while ((ngramCount = followIter.next())) {
-		LogP lprob;
-		double discount;
-
-		/*
-		 * Ignore zero counts.
-		 * They are there just as an artifact of the count trie
-		 * if a higher order ngram has a non-zero count.
-		 */
-		if (i > 1 && *ngramCount == 0) {
-		    continue;
-		}
-
-		if (vocab.isNonEvent(word[0]) || vocab.isMetaTag(word[0])) {
-		    /*
-		     * Discard all pseudo-word probabilities,
-		     * except for unigrams.  For unigrams, assign
-		     * probability zero.  This will leave them with
-		     * prob zero in all cases, due to the backoff
-		     * algorithm.
-		     * Also discard the <unk> token entirely in closed
-		     * vocab models, its presence would prevent OOV
-		     * detection when the model is read back in.
-		     */
-		    if (i > 1 || word[0] == vocab.unkIndex() ||
-				vocab.isMetaTag(word[0])) {
-				noneventNgrams ++;
+			if (totalCount == 0) {
 				continue;
-		    }
-
-		    lprob = LogP_Zero;
-		    discount = 1.0;
-		} else {
-		    /*
-		     * Ths discount array passed may contain 0 elements
-		     * to indicate no discounting at this order.
-		     */
-		    if (noDiscount) {
-				discount = 1.0;
-		    } else {
-				discount =
-			   		discounts[i-1]->discount(*ngramCount, totalCount,
-								observedVocab);
-		    }
-		    Prob prob = (discount * *ngramCount) / totalCount;
-
-		    /*
-		     * For interpolated estimates we compute the weighted 
-		     * linear combination of the high-order estimate
-		     * (computed above) and the lower-order estimate.
-		     * The high-order weight is given by the discount factor,
-		     * the lower-order weight is obtained from the Discount
-		     * method (it may be 0 if the method doesn't support
-		     * interpolation).
-		     */
-		    double lowerOrderWeight;
-		    LogP lowerOrderProb;
-		    if (interpolate) {
-				lowerOrderWeight = 
-			    discounts[i-1]->lowerOrderWeight(totalCount,
-							     observedVocab,
-							     min2Vocab,
-							     min3Vocab);
-			if (i > 1) {
-			    lowerOrderProb = wordProbBO(word[0], context, i-2);
-			} else {
-			    lowerOrderProb = - log10((double)vocabSize);
 			}
 
-				prob += lowerOrderWeight * LogPtoProb(lowerOrderProb);
-		    }
+			/*
+			* reverse the context ngram since that's how
+			* the BO nodes are indexed.
+			*/
+			Vocab::reverse(context);
 
-		    lprob = ProbToLogP(prob);
+			/*
+			* Compute the discounted probabilities
+			* from the counts and store them in the backoff model.
+			*/
+		retry:
+			followIter.init();
+			Prob totalProb = 0.0;
 
-		    if (discount != 0.0) {
-				totalProb += prob;
-		    }
+	    	while ((ngramCount = followIter.next())) {
+				LogP lprob;
+				double discount;
 
-		    if (discount != 0.0 && debug(DEBUG_ESTIMATES)) {
-				dout() << "CONTEXT " << (vocab.use(), context)
-					<< " WORD " << vocab.getWord(word[0])
-					<< " NUMER " << *ngramCount
-					<< " DENOM " << totalCount
-					<< " DISCOUNT " << discount;
+				/*
+				* Ignore zero counts.
+				* They are there just as an artifact of the count trie
+				* if a higher order ngram has a non-zero count.
+				*/
+				if (i > 1 && *ngramCount == 0) {
+					continue;
+				}
+
+				if (vocab.isNonEvent(word[0]) || vocab.isMetaTag(word[0])) {
+					/*
+					* Discard all pseudo-word probabilities,
+					* except for unigrams.  For unigrams, assign
+					* probability zero.  This will leave them with
+					* prob zero in all cases, due to the backoff
+					* algorithm.
+					* Also discard the <unk> token entirely in closed
+					* vocab models, its presence would prevent OOV
+					* detection when the model is read back in.
+					*/
+					if (i > 1 || word[0] == vocab.unkIndex() ||
+						vocab.isMetaTag(word[0])) {
+						noneventNgrams ++;
+						continue;
+					}
+
+					lprob = LogP_Zero;
+					dout() << " lprob " << lprob << endl;
+					discount = 1.0;
+				} else {
+					/*
+					* Ths discount array passed may contain 0 elements
+					* to indicate no discounting at this order.
+					*/
+					if (noDiscount) {
+						discount = 1.0;
+					} else {
+						discount =
+							discounts[i-1]->discount(*ngramCount, totalCount,
+										observedVocab);
+					}
+					Prob prob = (discount * *ngramCount) / totalCount;
+
+					/*
+					* For interpolated estimates we compute the weighted 
+					* linear combination of the high-order estimate
+					* (computed above) and the lower-order estimate.
+					* The high-order weight is given by the discount factor,
+					* the lower-order weight is obtained from the Discount
+					* method (it may be 0 if the method doesn't support
+					* interpolation).
+					*/
+					double lowerOrderWeight;
+					LogP lowerOrderProb;
+					if (interpolate) {
+						lowerOrderWeight = 
+						discounts[i-1]->lowerOrderWeight(totalCount,
+										observedVocab,
+										min2Vocab,
+										min3Vocab);
+					if (i > 1) {
+						lowerOrderProb = wordProbBO(word[0], context, i-2);
+					} else {
+						lowerOrderProb = - log10((double)vocabSize);
+					}
+
+						prob += lowerOrderWeight * LogPtoProb(lowerOrderProb);
+					}
+
+					lprob = ProbToLogP(prob);
+
+					if (discount != 0.0) {
+						totalProb += prob;
+					}
+
+					if (discount != 0.0 && debug(DEBUG_ESTIMATES)) {
+						dout() << "CONTEXT " << (vocab.use(), context)
+							<< " WORD " << vocab.getWord(word[0])
+							<< " NUMER " << *ngramCount
+							<< " DENOM " << totalCount
+							<< " DISCOUNT " << discount;
+
+					if (interpolate) {
+						dout() << " LOW " << lowerOrderWeight
+						<< " LOLPROB " << lowerOrderProb;
+					}
+						dout() << " LPROB " << lprob << endl;
+					}
+				}
+				
+				/*
+				* A discount coefficient of zero indicates this ngram
+				* should be omitted entirely (presumably to save space).
+				*/
+				if (discount == 0.0) {
+					discountedNgrams ++;
+					removeProb(word[0], context);
+				} else {
+					*insertProb(word[0], context) = lprob;
+				} 
+			}
+
+	    	/*
+			* This is a hack credited to Doug Paul (by Roni Rosenfeld in
+			* his CMU tools).  It may happen that no probability mass
+			* is left after totalling all the explicit probs, typically
+			* because the discount coefficients were out of range and
+			* forced to 1.0.  Unless we have seen all vocabulary words in
+			* this context, to arrive at some non-zero backoff mass,
+			* we try incrementing the denominator in the estimator by 1.
+			* Another hack: If the discounting method uses interpolation 
+			* we first try disabling that because interpolation removes
+			* probability mass.
+			*/
+			if (!noDiscount && totalCount > 0 &&
+				observedVocab < vocabSize &&
+				totalProb > 1.0 - Prob_Epsilon) {
+				if (debug(DEBUG_ESTIMATE_WARNINGS)) {
+					cerr << "warning: " << (1.0 - totalProb)
+					<< " backoff probability mass left for \""
+					<< (vocab.use(), context)
+					<< "\" -- ";
+					if (interpolate) {
+						cerr << "disabling interpolation\n";
+					} else {
+						cerr << "incrementing denominator\n";
+					}
+			}
 
 			if (interpolate) {
-			    dout() << " LOW " << lowerOrderWeight
-				   << " LOLPROB " << lowerOrderProb;
-			}
-				dout() << " LPROB " << lprob << endl;
-		    }
-		}
-		    
-			/*
-			* A discount coefficient of zero indicates this ngram
-			* should be omitted entirely (presumably to save space).
-			*/
-			if (discount == 0.0) {
-				discountedNgrams ++;
-				removeProb(word[0], context);
+				interpolate = false;
 			} else {
-				*insertProb(word[0], context) = lprob;
-			} 
-	    }
-
-	    /*
-	     * This is a hack credited to Doug Paul (by Roni Rosenfeld in
-	     * his CMU tools).  It may happen that no probability mass
-	     * is left after totalling all the explicit probs, typically
-	     * because the discount coefficients were out of range and
-	     * forced to 1.0.  Unless we have seen all vocabulary words in
-	     * this context, to arrive at some non-zero backoff mass,
-	     * we try incrementing the denominator in the estimator by 1.
-	     * Another hack: If the discounting method uses interpolation 
-	     * we first try disabling that because interpolation removes
-	     * probability mass.
-	     */
-	    if (!noDiscount && totalCount > 0 &&
-			observedVocab < vocabSize &&
-			totalProb > 1.0 - Prob_Epsilon) {
-			if (debug(DEBUG_ESTIMATE_WARNINGS)) {
-				cerr << "warning: " << (1.0 - totalProb)
-				<< " backoff probability mass left for \""
-				<< (vocab.use(), context)
-				<< "\" -- ";
-				if (interpolate) {
-				cerr << "disabling interpolation\n";
-				} else {
-				cerr << "incrementing denominator\n";
-				}
+				totalCount += 1;
 			}
 
-		if (interpolate) {
-		    interpolate = false;
-		} else {
-		    totalCount += 1;
+				goto retry;
+			}
+
+			/*
+			* Undo the reversal above so the iterator can continue correctly
+			*/
+			Vocab::reverse(context);
 		}
 
-			goto retry;
-	    }
+		if (debug(DEBUG_ESTIMATE_WARNINGS)) {
+			if (noneventContexts > 0) {
+				dout() << "discarded " << noneventContexts << " "
+				<< i << "-gram contexts containing pseudo-events\n";
+			}
+			if (noneventNgrams > 0) {
+				dout() << "discarded " << noneventNgrams << " "
+				<< i << "-gram probs predicting pseudo-events\n";
+			}
+			if (discountedNgrams > 0) {
+				dout() << "discarded " << discountedNgrams << " "
+				<< i << "-gram probs discounted to zero\n";
+			}
+		}
 
-	    /*
-	     * Undo the reversal above so the iterator can continue correctly
-	     */
-	    Vocab::reverse(context);
-	}
-
-	if (debug(DEBUG_ESTIMATE_WARNINGS)) {
-	    if (noneventContexts > 0) {
-		dout() << "discarded " << noneventContexts << " "
-		       << i << "-gram contexts containing pseudo-events\n";
-	    }
-	    if (noneventNgrams > 0) {
-		dout() << "discarded " << noneventNgrams << " "
-		       << i << "-gram probs predicting pseudo-events\n";
-	    }
-	    if (discountedNgrams > 0) {
-		dout() << "discarded " << discountedNgrams << " "
-		       << i << "-gram probs discounted to zero\n";
-	    }
-	}
-
-	/*
-	 * With all the probs in place, BOWs are obtained simply by the usual
-	 * normalization.
-	 * We do this right away before computing probs of higher order since 
-	 * the estimation of higher-order N-grams can refer to lower-order
-	 * ones (e.g., for interpolated estimates).
-	 */
-	computeBOWs(i-1);
+		/*
+		* With all the probs in place, BOWs are obtained simply by the usual
+		* normalization.
+		* We do this right away before computing probs of higher order since 
+		* the estimation of higher-order N-grams can refer to lower-order
+		* ones (e.g., for interpolated estimates).
+		*/
+		computeBOWs(i-1);
     }
 
     fixupProbs();
@@ -2583,9 +2609,10 @@ Ngram::rescoreProbs(LM &lm)
  * 	set the probability to the same as what the backoff algorithm
  * 	would compute (so as not to change the distribution).
  */
-void
-Ngram::fixupProbs()
-{
+void Ngram::fixupProbs() {
+
+	// 新建数组
+	cout << "Insert probabilities for all context ngrams" << endl;
     makeArray(VocabIndex, context, order + 1);
 
     /*
@@ -2603,77 +2630,75 @@ Ngram::fixupProbs()
      */
     unsigned i;
     for (i = 1; i < order; i++) {
-	NgramBOsIter iter(*this, context, i);
+		NgramBOsIter iter(*this, context, i);
 	
-	while (iter.next()) {
-	    /*
-	     * For a context abcd we need to create probability entries
-	     * p(d|abc), p(c|ab), p(b|a), p(a) if necessary.
-	     * If any of these is found in that order we can stop since a
-	     * previous pass will already have created the remaining ones.
-	     */
-	    for (unsigned j = 0; j < i; j++) {
-		LogP *prob = findProb(context[j], &context[j+1]);
+		while (iter.next()) {
+			/*
+			* For a context abcd we need to create probability entries
+			* p(d|abc), p(c|ab), p(b|a), p(a) if necessary.
+			* If any of these is found in that order we can stop since a
+			* previous pass will already have created the remaining ones.
+			*/
+			for (unsigned j = 0; j < i; j++) {
+				LogP *prob = findProb(context[j], &context[j+1]);
 
-		if (prob) {
-		    break;
-		} else {
-		    /*
-		     * Just store something non-zero to distinguish from
-		     * internal nodes that are added implicitly.
-		     */
-		    *contextsToAdd.insert(&context[j]) = 1;
+				if (prob) {
+					break;
+				} else {
+					/*
+					* Just store something non-zero to distinguish from
+					* internal nodes that are added implicitly.
+					*/
+					*contextsToAdd.insert(&context[j]) = 1;
+				}
+			}
 		}
-	    }
-	}
     }
 
 
     /*
      * Store the missing probs
+	 * 保存缺失的概率
      */
     for (i = 1; i < order; i++) {
-	unsigned numFakes = 0;
+		unsigned numFakes = 0;
 
-	Trie<VocabIndex,NgramCount> *node;
-	TrieIter2<VocabIndex,NgramCount> iter(contextsToAdd, context, i);
-	
+		Trie<VocabIndex,NgramCount> *node;
+		TrieIter2<VocabIndex, NgramCount> iter(contextsToAdd, context, i);
 
-	while ((node = iter.next())) {
-	    if (node->value()) {
-		numFakes ++;
+		while ((node = iter.next())) {
+			if (node->value()) {
+				numFakes ++;
 
-		/*
-		 * Note: we cannot combine the two statements below
-		 * since insertProb() creates a zero prob entry, which would
-		 * prevent wordProbBO() from computing the backed-off 
-		 * estimate!
-		 */
-		LogP backoffProb = wordProbBO(context[0], &context[1], i - 1);
-		*insertProb(context[0], &(context[1])) = backoffProb;
+				/*
+				* Note: we cannot combine the two statements below
+				* since insertProb() creates a zero prob entry, which would
+				* prevent wordProbBO() from computing the backed-off 
+				* estimate!
+				*/
+				LogP backoffProb = wordProbBO(context[0], &context[1], i - 1);
+				*insertProb(context[0], &(context[1])) = backoffProb;
 
-		if (debug(DEBUG_FIXUP_WARNINGS)) {
-		    dout() << "faking probability for context "
-			   << (vocab.use(), context) << endl;
+				if (debug(DEBUG_FIXUP_WARNINGS)) {
+					dout() << "faking probability for context "
+					<< (vocab.use(), context) << endl;
+				}
+	    	}
 		}
-	    }
-	}
 
-	if (debug(DEBUG_ESTIMATE_WARNINGS)) {
-	    if (numFakes > 0) {
-		dout() << "inserted " << numFakes << " redundant " 
-		       << i << "-gram probs\n";
-	    }
-	}
+		if (debug(DEBUG_ESTIMATE_WARNINGS)) {
+			if (numFakes > 0) {
+				dout() << "inserted " << numFakes << " redundant " 
+					<< i << "-gram probs\n";
+			}
+		}
     }
 }
 
 /*
  * Redistribute probability mass over ngrams of given context
  */
-void
-Ngram::distributeProb(Prob mass, VocabIndex *context)
-{
+void Ngram::distributeProb(Prob mass, VocabIndex *context) {
     /*
      * First enumerate the vocabulary to count the number of
      * items affected

@@ -24,25 +24,53 @@ using namespace std;
 #include "Prob.h"
 #include "Counts.h"
 
-class TextStats
-{
+/**
+ * --------------------------------------
+1、概述
+--------------------------------------
+    这两个文件定义了一个TextStats类，该类主要用于计算句子集
+    的perplexity值。
+    TextStats类
+        该类提供了如下函数
+        a) 构造函数
+        b) 重置函数
+        c) 叠加函数
+        d) 重载的全局输出运算符<<
+ * 
+ * **/
+class TextStats {
 public:
-    TextStats() : prob(0.0), zeroProbs(0.0),
-	numSentences(0.0), numWords(0.0), numOOVs(0.0),
-	r1(0), r5(0), r10(0), r1se(0), r5se(0), r10se(0),
-	rTotal(0), posQuadLoss(0), posAbsLoss(0)
-	{};
+    TextStats() : 
+        prob(0.0), 
+        zeroProbs(0.0),
+	    numSentences(0.0), 
+        numWords(0.0), 
+        numOOVs(0.0),
+	    r1(0), 
+        r5(0), 
+        r10(0), 
+        r1se(0), 
+        r5se(0), 
+        r10se(0),
+	    rTotal(0), 
+        posQuadLoss(0), 
+        posAbsLoss(0) {
 
-    void reset() { prob = 0.0, zeroProbs = 0.0,
-	numSentences = numWords = numOOVs = 0.0;
-	r1 = r5 = r10 = r1se = r5se = r10se = rTotal = 0;
-	posQuadLoss = posAbsLoss = 0.0; };
+    };
+
+    void reset() { 
+        prob = 0.0, 
+        zeroProbs = 0.0,
+	    numSentences = numWords = numOOVs = 0.0;
+	    r1 = r5 = r10 = r1se = r5se = r10se = rTotal = 0;
+	    posQuadLoss = posAbsLoss = 0.0; 
+    };
     TextStats &increment(const TextStats &stats, FloatCount weight = 1.0);
 
     LogP2 prob;
     FloatCount zeroProbs;
     FloatCount numSentences;
-    FloatCount numWords;
+    FloatCount numWords;        // 统计单词的数目
     FloatCount numOOVs;
 
     /*

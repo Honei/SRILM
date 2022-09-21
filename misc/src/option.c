@@ -95,8 +95,8 @@ Opt_Parse(
 	     */
 
 	    if ((strcmp(curOpt, "?") == 0) || (strcmp(curOpt, "help") == 0)) {
-		Opt_PrintUsage (argv[0], optionArray, numOptions);
-		exit(0);
+			Opt_PrintUsage (argv[0], optionArray, numOptions);
+			exit(0);
 	    }
 
 	    /*

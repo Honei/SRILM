@@ -279,8 +279,7 @@ writable_p (const char *name)
 /*
  * Open a stdio stream, handling special filenames
  */
-FILE *zopen(const char *name, const char *mode)
-{
+FILE *zopen(const char *name, const char *mode) {
     char command[MAXPATHLEN + 100];
 
     if (stdio_filename_p(name)) {

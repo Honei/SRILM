@@ -829,13 +829,19 @@ int main(int argc, char **argv) {
 		delete lm;
 #endif
     } else if (lmFile) {
+		/*********************************************************************************************/
+		/***************************************保存语言模型********************************************/
+		/*********************************************************************************************/
         /*
 		* Backoff ngram LM estimation:
 		* either using a default discounting scheme, or the GT parameters
 		* read in from files
 		*/
+		cout << endl;
+		cout <<__FILE__ << "::" << __LINE__ << ":: start to estimate backoff lm model, varPrune: " << varPrune
+			<< ", spkpNgram: " << skipNgram << endl;
 		Ngram *lm;
-		cout <<__FILE__ << "::" << __LINE__ << ":: start to estimate backoff lm model" << endl;
+		
 		if (varPrune != 0.0) {
 			lm = new VarNgram(*vocab, order, varPrune);
 			assert(lm != 0);
@@ -849,7 +855,12 @@ int main(int argc, char **argv) {
 
 			lm = skipLM;
 		} else {
-			cout <<__FILE__ << "::" << __LINE__ << ":: new Ngram modell order is: " << order << endl;
+			// 默认情况下新建的是一个 StopNgram 模型
+			cout <<__FILE__ << "::" << __LINE__ 
+				 << ":: new Ngram modell order is: " << order 
+				 <<", stopWords: " << stopWords 
+				 << ", tagged: " << tagged << endl;
+			// 默认新建的是一个 Ngram 语言模型
 			lm = (stopWords != 0) ? new StopNgram(*vocab, *stopWords, order) :
 				tagged ? new TaggedNgram(*(TaggedVocab *)vocab, order) :
 				new Ngram(*vocab, order);
@@ -868,17 +879,21 @@ int main(int argc, char **argv) {
 		* Read initial LM parameters in case we're doing EM
 		*/
 		if (initLMFile) {
+			cout <<__FILE__ << "::" << __LINE__ 
+				 << ":: read an initial LM model" << endl;
 			File file(initLMFile, "r");
-
 			if (!lm->read(file, limitVocab)) {
 				cerr << "format error in init-lm file\n";
 				exit(1);
 			}
 		}
-        
+		      
 		if (trustTotals) {
 			lm->trustTotals() = true;
 		}
+
+		cout <<__FILE__ << "::" << __LINE__ 
+				 << ":: n-gram LM start to estimate" << endl;  
 		if (!(useFloatCounts ? lm->estimate(*floatStats, discounts) :
 					lm->estimate(*intStats, discounts))) {
 			cerr << "LM estimation failed\n";
@@ -895,6 +910,8 @@ int main(int argc, char **argv) {
 				File file(lmFile, "wb");
 				lm->writeBinary(file);
 			} else {
+				cout <<__FILE__ << "::" << __LINE__ 
+				 << ":: start to store the lm model" << endl; 
 				File file(lmFile, "w");
 				lm->write(file);
 			}
@@ -903,9 +920,9 @@ int main(int argc, char **argv) {
 
 		// XXX: don't free the lm since this itself may take a long time
 		// and we're going to exit anyways.
-	#ifdef DEBUG
+#ifdef DEBUG
 		delete lm;
-	#endif
+#endif
 	}
 
     if (writeVocab) {
@@ -925,9 +942,9 @@ int main(int argc, char **argv) {
 	 * 输出统计数据
      */
     for (i = 1; i <= maxorder; i++) {
-		//cout << "write the " << i << " order content, maxorder is:" << maxorder << endl;
 		if (writeFile[i]) {
-			cout << "write the order: " << i << endl;
+			cout << "write the " << i << " order content, maxorder is:" << maxorder << endl;
+			cout << "write the order: " << i << ", file: " << writeFile[i] << endl;
 			File file(writeFile[i], "w");
 			USE_STATS(write(file, i, sortNgrams));
 			written = true;

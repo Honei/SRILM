@@ -47,25 +47,51 @@ using namespace std;
  *	foo.debugall(1);
  *
  */
-class Debug
-{
+
+/**
+ * SRILM 中日志类
+ * 
+ * ***/
+class Debug {
 public:
-    Debug(unsigned level = 0)
-      : nodebug(false), debugLevel(level), debugStream(&cerr) {};
+    Debug(unsigned level = 0) : 
+        nodebug(false), 
+        debugLevel(level), 
+        debugStream(&cerr) {
+
+    };
     virtual ~Debug() {};	    /* prevent warning about no virtual dtor */
 
-    Boolean debug(unsigned level) const  /* true if debugging */
-	{ return (!nodebug && (debugAll >= level || debugLevel >= level)); };
-    virtual void debugme(unsigned level) { debugLevel = level; };
-				    /* set object's debugging level */
-    void debugall(unsigned level) { debugAll = level; };
-				    /* set global debugging level */
-    unsigned debuglevel() const { return debugLevel; };
+    // 传入日志等级
+    Boolean debug(unsigned level) const {/* true if debugging */
+	    return (!nodebug && (debugAll >= level || debugLevel >= level)); 
+    };
 
-    virtual ostream &dout() const { return *debugStream; };
-				    /* output stream for use with << */
-    virtual ostream &dout(ostream &stream)  /* redirect debugging output */
-	{ debugStream = &stream; return stream; };
+    /* set object's debugging level */
+    // 设置当前实例的日志等级
+    virtual void debugme(unsigned level) { 
+        debugLevel = level; 
+    };
+				    
+    /* set global debugging level */
+    // 设置全局日志等级
+    void debugall(unsigned level) { 
+        debugAll = level; 
+    };
+				    
+    unsigned debuglevel() const { 
+        return debugLevel; 
+    };
+
+    /* output stream for use with << */
+    virtual ostream &dout() const { 
+        return *debugStream; 
+    };
+				    
+    /* redirect debugging output */
+    virtual ostream &dout( ostream &stream ) { 
+        debugStream = &stream; return stream; 
+    };
 
     Boolean nodebug;		    /* temporarily disable debugging */
 private:

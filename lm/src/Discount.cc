@@ -42,6 +42,9 @@ unsigned Discount::vocabSize(Vocab &vocab) {
     return total;
 }
 
+/*********************************************************************************/
+/***********************************古德-图灵算法***********************************/
+/*********************************************************************************/
 /*
  * Good-Turing discounting
  */
@@ -53,7 +56,6 @@ GoodTuring::GoodTuring(unsigned mincount, unsigned maxcount):
     * a zero count cannot be discounted
 	* 折扣系数
     */
-	cout << "Good-Turing discount, minCount: " << minCount << ", maxCount: " << maxCount << endl;
 	discountCoeffs[0] = 1.0;
 }
 
@@ -146,8 +148,8 @@ Boolean GoodTuring::read(File &file) {
 
     // Add 2nd check in case "&& stringToCount()" failed
     if (maxCount > maxNgramOrder) {
-	file.position() << "maxcount value out of range\n";
-	return false;
+		file.position() << "maxcount value out of range\n";
+		return false;
     }
 
     for (Count n = minCount; n <= maxCount; n++) {
@@ -160,6 +162,7 @@ Boolean GoodTuring::read(File &file) {
 }
 
 /*
+ * 对古德-图灵算法进行估计
  * Estimation of discount coefficients from ngram count-of-counts
  *
  * The Good-Turing formula for this is
@@ -186,6 +189,7 @@ Boolean GoodTuring::estimate(NgramStats &counts, unsigned order) {
     Count i;
 	
 	// 2. 这里 maxCount 限制了最多统计出现 maxCount + 1 次的文法
+	//    即统计出现 r 次的单词的数目，这里的 r 就是for 循环中的 i
     for (i = 0; i <= maxCount + 1; i++) {
 		countOfCounts[i]  = 0;
     }
@@ -196,6 +200,7 @@ Boolean GoodTuring::estimate(NgramStats &counts, unsigned order) {
 			dout() << __FILE__ <<"::" << __FUNCTION__  << "::" << __LINE__ 
 					<< " word: " << counts.vocab.getWord(wids[order-1]) << ", count: " << *count << endl;
 		}
+		// 3.1 如果是非正式的单词，那么不统计
 		if (counts.vocab.isNonEvent(wids[order - 1])) {
 			if (debug(DEBUG_ESTIMATE_DISCOUNT)) {
 				dout() << __FILE__ <<"::" << __FUNCTION__  << "::" << __LINE__ 
@@ -217,6 +222,8 @@ Boolean GoodTuring::estimate(NgramStats &counts, unsigned order) {
 				countOfCounts[type] += *count;
 			}
 		} else if (*count <= maxCount + 1) {
+			// 3.3 统计出现 r 次的单词的数目，在计算最后的概率时，需要用到 N_{K+1}
+			//     因此，这里要统计 maxCount + 1次数的单词的数目
 	    	countOfCounts[*count] ++;
 			if (debug(DEBUG_ESTIMATE_DISCOUNT)) {
 				dout() << __FILE__ <<"::" << __FUNCTION__  << "::" << __LINE__ 
@@ -232,9 +239,11 @@ Boolean GoodTuring::estimate(NgramStats &counts, unsigned order) {
 
 	// 4. 打印出现 r 次文法的数目
     if (debug(DEBUG_ESTIMATE_DISCOUNT)) {
-		dout() << "Good-Turing discounting " << order << "-grams\n";
+		dout() << __FILE__ <<"::" << __FUNCTION__  << "::" << __LINE__ 
+			  << "Good-Turing discounting " << order << "-grams\n";
 		for (i = 0; i <= maxCount + 1; i++) {
-			dout() << "GT-count [" << i << "] = " << countOfCounts[i] << endl;
+			dout() << __FILE__ <<"::" << __FUNCTION__  << "::" << __LINE__ 
+				   << "GT-count [" << i << "] = " << countOfCounts[i] << endl;
 		}
     }
 	
@@ -257,9 +266,18 @@ Boolean GoodTuring::estimate(NgramStats &counts, unsigned order) {
     if (maxCount <= 0) {
 		cerr << "GT discounting disabled\n";
     } else {
+		// 正确的计算公式参考《自然语言处理综论》中6.3.3中的算法
+		if (debug(DEBUG_ESTIMATE_DISCOUNT)) {
+			dout() << __FILE__ <<"::" << __FUNCTION__  << "::" << __LINE__ 
+						<< " maxCount is " << maxCount << endl << endl;
+		}
 		double commonTerm = (maxCount + 1) *
-					(double)countOfCounts[maxCount + 1] /
-						(double)countOfCounts[1];
+							(double)countOfCounts[maxCount + 1] /
+							(double)countOfCounts[1];
+		if (debug(DEBUG_ESTIMATE_DISCOUNT)) {
+			dout() << __FILE__ <<"::" << __FUNCTION__  << "::" << __LINE__ 
+						<< " commonTerm is " << commonTerm << endl << endl;
+		}
 		// 7.2 依次遍历出现 i 次的文法
 		for (i = 1; i <= maxCount; i++) {
 			double coeff;
@@ -268,8 +286,17 @@ Boolean GoodTuring::estimate(NgramStats &counts, unsigned order) {
 				cerr << "warning: count of count " << i << " is zero\n";
 				coeff = 1.0;
 			} else {
+				// 这里分母是否需要除以 i
 				double coeff0 = (i + 1) * (double)countOfCounts[i+1] /
 								(i * (double)countOfCounts[i]);
+				
+				// 这里重新计算每个单词的概率
+				discountCoeffs[i] = coeff;
+				if (debug(DEBUG_ESTIMATE_DISCOUNT)) {
+					dout() << __FILE__ <<"::" << __FUNCTION__  << "::" << __LINE__ 
+							<< " coeff0  is " << coeff0 << endl << endl;
+				}
+
 				coeff = (coeff0 - commonTerm) / (1.0 - commonTerm);
 				if (!isfinite(coeff) || coeff <= Prob_Epsilon || coeff0 > 1.0) {
 					cerr << "warning: discount coeff " << i
@@ -279,9 +306,19 @@ Boolean GoodTuring::estimate(NgramStats &counts, unsigned order) {
 			}
 			// 这里重新计算每个单词的概率
 			discountCoeffs[i] = coeff;
+			if (debug(DEBUG_ESTIMATE_DISCOUNT)) {
+				dout() << __FILE__ <<"::" << __FUNCTION__  << "::" << __LINE__ 
+						<< " discountCoeffs[" << i << "] is " << discountCoeffs[i]  << endl << endl;
+			}
 		} // for 
     }// else
 
+	for (int i=1; i <= maxCount; i++) {
+		if (debug(DEBUG_ESTIMATE_DISCOUNT)) {
+			dout() << __FILE__ <<"::" << __FUNCTION__  << "::" << __LINE__ 
+				   << " discountCoeffs[" << i << "] is " << discountCoeffs[i]  << endl;
+		}
+	}
     return true;
 }
 

@@ -1,0 +1,8 @@
+.DS_Store
+.vscode/
+*.o
+lm/bin/
+output
+doc/.DS_Store
+[Bb]in/
+[Ll]ib/

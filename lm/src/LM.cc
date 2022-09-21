@@ -112,22 +112,22 @@ unsigned LM::initialDebugLevel = 0;
  *	The LM is created with a reference to a Vocab, so various
  *	LMs and other objects can share one Vocab.  The LM will typically
  *	add words to the Vocab as needed.
+ *  所有的语言模型共享一个词典，因此一个语言模型对词典修改后，会影响所有的语言模型
  */
-LM::LM(Vocab &vocab)
-    : vocab(vocab), noiseVocab(vocab)
-{
+LM::LM(Vocab &vocab) : 
+			vocab(vocab), 
+			noiseVocab(vocab) {
     _running = false;
     reverseWords = false;
-    addSentStart = true;
-    addSentEnd = true;
+    addSentStart = true;			// 默认添加了<s>
+    addSentEnd = true;				// 默认添加了</s>
     stateTag = defaultStateTag;
     writeInBinary = false;
 
     debugme(initialDebugLevel);
 }
 
-LM::~LM()
-{
+LM::~LM() {
 }
 
 /*

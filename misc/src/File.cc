@@ -44,29 +44,36 @@ const char *wordSeparators = " \t\r\n";
 
 #define iconvNone	((void *)-1)
 
-File::File(const char *name, const char *mode, int exitOnError)
-    : name(name?strdup(name):0), lineno(0), exitOnError(exitOnError), skipComments(true),
-      fp(NULL), gzf(NULL), buffer((char *)malloc(START_BUF_LEN)), bufLen(START_BUF_LEN),
-      reuseBuffer(false), atFirstLine(true), encoding(ASCII), iconvID(iconvNone),
-      strFileLen(0), strFilePos(0), strFileActive(0)
-
-{
+File::File(const char *name, const char *mode, int exitOnError) : 
+        name(name ? strdup(name) : 0), lineno(0), 
+        exitOnError(exitOnError), 
+        skipComments(true),
+        fp(NULL), 
+        gzf(NULL), 
+        buffer((char *)malloc(START_BUF_LEN)), 
+        bufLen(START_BUF_LEN),
+        reuseBuffer(false), 
+        atFirstLine(true), 
+        encoding(ASCII), 
+        iconvID(iconvNone),
+        strFileLen(0), 
+        strFilePos(0), 
+        strFileActive(0) {
     assert(buffer != 0);
 
-    unsigned len = name?strlen(name):0;
+    unsigned len = name ? strlen(name): 0;
     if (len > sizeof(GZIP_SUFFIX)-1 &&
-        (strcmp(name + len - (sizeof(GZIP_SUFFIX)-1), GZIP_SUFFIX) == 0))
-    {
+        (strcmp(name + len - (sizeof(GZIP_SUFFIX)-1), GZIP_SUFFIX) == 0)) {
         gzf = gzopen(name, mode);
     } else if (name) {
-	fp = zopen(name, mode);
+	    fp = zopen(name, mode);
     }
 
     if (gzf == NULL && fp == NULL) {
-	if (exitOnError) {
-	    perror(name);
-	    exit(exitOnError);
-	}
+        if (exitOnError) {
+            perror(name);
+            exit(exitOnError);
+        }
     }
     strFile = "";
 }
@@ -420,9 +427,7 @@ File::fgetsUTF8(char *buffer, int buflen)
     return buffer;
 }
 
-char *
-File::getline()
-{
+char * File::getline() {
     if (reuseBuffer) {
 	reuseBuffer = false;
 	return buffer;
@@ -492,7 +497,7 @@ void File::ungetline() {
 
 ostream &File::position(ostream &stream) {
     if (name) {
-	stream << name << ": ";
+	    stream << name << ": ";
     }
     return stream << "line " << lineno << ": ";
 }

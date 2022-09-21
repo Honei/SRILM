@@ -40,8 +40,7 @@ class LM;		/* forward declaration */
  * The default behavior implemented here is to simply enumerate all
  * words in the vocabulary.
  */
-class _LM_FollowIter
-{
+class _LM_FollowIter {
 public:
     _LM_FollowIter(LM &lm, const VocabIndex *context);
     virtual ~_LM_FollowIter() {};
@@ -56,8 +55,10 @@ private:
     VocabIter myIter;
 };
 
-class LM: public Debug
-{
+/**
+ * 语言模型的父类，所有的语言模型都继承自这个类
+ * **/
+class LM: public Debug {
     friend class _LM_FollowIter;
 
 public:
@@ -202,8 +203,7 @@ protected:
  * class-specific iterator, using the LM::followIter virtual function.
  * All iterator operations then simply dispatch to the real iterator.
  */
-class LM_FollowIter
-{
+class LM_FollowIter {
 public:
     LM_FollowIter(LM &lm, VocabIndex *context)
 	: realIter(lm.followIter(context)) {};
@@ -223,8 +223,7 @@ private:
  *	NOTE: this modifies the constructor argument as well.
  * 	Destroying the object undoes the truncation
  */
-class TruncatedContext
-{
+class TruncatedContext {
 public:
     TruncatedContext(const VocabIndex *context, unsigned len)
 	: myContext(context), contextLength(len)

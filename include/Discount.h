@@ -19,68 +19,106 @@
 
 #include "NgramStats.h"
 
-const Count GT_defaultMinCount = 1;
-const Count GT_defaultMaxCount = 5;
-
 /*
  * Discount --
  *	A method to manipulate counts for estimation purposes.
  *	Typically, a count > 0 is adjusted downwards to free up
  *	probability mass for unseen (count == 0) events.
+ *  代码阅读参考链接：https://blog.csdn.net/kevinfight/article/details/6423930?spm=1001.2014.3001.5501
+ *  Discount.h Discount.cc 这两个文件主要实现了最重要的几个折扣算法, 包括 
+    a. Katz Discount (基于 Good-Turing Discounting)
+    b. Absolute Discounting
+    c. Natural law of succession [Eric Sven Ristad, 1995]
+    d. Additive Discounting [Lidstone-Johnson-Jeffrey]
+    e  Witten-Bell Discounting
+    f. Kneser-Ney  Discounting
+    g. Modified Kneser-Ney Discounting, [Chen, Goodman, 1998]
+ *  默认情况下日志等级为0， 表示所有的信息都打印出来
+ *  Discount 类是所有折扣方法的父类
  */
 class Discount: public Debug {
 public:
-    Discount() : interpolate(false) {};
-    virtual ~Discount() {};
+    Discount() : 
+        interpolate(false) {
 
-    virtual double discount(Count count, Count totalCount, Count observedVocab)
-	{ return 1.0; };	    /* discount coefficient for count */
+    };
 
-    virtual double discount(FloatCount count, FloatCount totalCount,
-						    Count observedVocab)
+    virtual ~Discount() {
+
+    };
+
+    /* discount coefficient for count */
+    // 目前还不明白这个函数的意义
+    virtual double discount(Count count, Count totalCount, Count observedVocab) { 
+        return 1.0; 
+    };	 
+
+
 	/*
 	 * By default, we discount float counts by discounting the
 	 * integer ceiling value.
 	 */
-	{ return discount((Count)ceil(count), (Count)ceil(totalCount),
-							    observedVocab); };
+    virtual double discount(FloatCount count, FloatCount totalCount, Count observedVocab) { 
+        return discount((Count)ceil(count), 
+                        (Count)ceil(totalCount),
+						observedVocab); 
+    };
 
+    /* weight given to the lower-order
+    	* distribution when interpolating
+	* high-order estimates (none by default) */
     virtual double lowerOrderWeight(Count totalCount, Count observedVocab,
-					    Count min2Vocab, Count min3Vocab)
-	{ return 0.0; }		    /* weight given to the lower-order
-				     * distribution when interpolating
-				     * high-order estimates (none by default) */
+					    Count min2Vocab, Count min3Vocab) { 
+        return 0.0; 
+    }		    
+
     virtual double lowerOrderWeight(FloatCount totalCount, Count observedVocab,
-					    Count min2Vocab, Count min3Vocab)
-	{ return lowerOrderWeight((Count)ceil(totalCount), observedVocab,
-						min2Vocab, min3Vocab); };
+					                Count min2Vocab, Count min3Vocab) { 
+        return lowerOrderWeight((Count)ceil(totalCount), 
+                                observedVocab,
+						        min2Vocab, 
+                                min3Vocab); 
+    };
+    
+    /* check if discounting disabled */
+    virtual Boolean nodiscount() { 
+        return false; 
+    };
+	
+    /* save parameters to file */
+    virtual void write(File &file) {
 
-    virtual Boolean nodiscount() { return false; };
-				    /* check if discounting disabled */
-    virtual void write(File &file) {};
-				    /* save parameters to file */
-    virtual Boolean read(File &file) { return false; };
-				    /* read parameters from file */
+    };
 
-    virtual Boolean estimate(NgramStats &counts, unsigned order)
+    /* read parameters from file */   
+    virtual Boolean read(File &file) { 
+        return false; 
+    };
+
 	/*
 	 * dummy estimator for when there is nothing to estimate
-	 */
-	{ return true; };
-    virtual Boolean estimate(NgramCounts<FloatCount> &counts, unsigned order)
+	 */				    
+    virtual Boolean estimate(NgramStats &counts, unsigned order) { 
+        return true; 
+    };
+
 	/*
 	 * by default, don't allow discount estimation from fractional counts
 	 */
-	{ dout() << "discounting method does not support float counts\n";
-          return false; };
+    virtual Boolean estimate(NgramCounts<FloatCount> &counts, unsigned order) { 
+        dout() << "discounting method does not support float counts\n";
+        return false; 
+    };
 
     virtual void prepareCounts(NgramCounts<NgramCount> &counts,
-				unsigned order, unsigned maxOrder)
-	{ return; };
+				unsigned order, unsigned maxOrder) { 
+        return; 
+    };
 
     virtual void prepareCounts(NgramCounts<FloatCount> &counts,
-				unsigned order, unsigned maxOrder)
-	{ return; };
+				unsigned order, unsigned maxOrder) { 
+        return; 
+    };
 
     Boolean interpolate;
     
@@ -92,12 +130,16 @@ protected:
 /*
  * GoodTuring --
  *	The standard discounting method based on count of counts
+ * 古德-图灵平滑算法是 n-gram 中标准的平滑算法，这里假设 GT 算法中最大只平滑GT_defaultMaxCount阶
+ * 《自然语言处理综论》
  */
-class GoodTuring: public Discount
-{
+
+const Count GT_defaultMinCount = 1;
+const Count GT_defaultMaxCount = 5;
+class GoodTuring: public Discount {
 public:
     GoodTuring(unsigned mincount = GT_defaultMinCount,
-	       unsigned maxcount = GT_defaultMaxCount);
+	           unsigned maxcount = GT_defaultMaxCount);
 
     double discount(Count count, Count totalCount, Count observedVocab);
     Boolean nodiscount();
@@ -105,11 +147,14 @@ public:
     void write(File &file);
     Boolean read(File &file);
 
+    /**
+     * 平滑算法的平滑接口
+     * **/
     Boolean estimate(NgramStats &counts, unsigned order);
 
 protected:
-    Count minCount;		    /* counts below this are set to 0 */
-    Count maxCount;		    /* counts above this are unchanged */
+    Count minCount;		    /* counts below this are set to 0 */        // 将低于该计数的词概率设置为0
+    Count maxCount;		    /* counts above this are unchanged */       // 高于该计数的词概率不变
 
     Array<double> discountCoeffs;   /* cached discount coefficients */
 };

@@ -12,17 +12,16 @@
 #define _File_h_
 
 #ifdef PRE_ISO_CXX
-# include <iostream.h>
+    # include <iostream.h>
 #else
-# include <iostream>
-using namespace std;
+    # include <iostream>
+    using namespace std;
 #endif
 
 #include <stdio.h>
-
+#include <cstring>
 #include "zio.h"
 #include "zlib.h"
-
 #include "Boolean.h"
 
 /*
@@ -31,6 +30,7 @@ using namespace std;
 #undef GZIP_SUFFIX
 #define GZIP_SUFFIX      ".gz"
 
+// 每一行允许的最大单词的数目
 const unsigned int maxWordsPerLine = 50000;
 
 extern const char *wordSeparators;
@@ -129,7 +129,12 @@ private:
     unsigned bufLen;
     Boolean reuseBuffer;
     Boolean atFirstLine;	// we haven't read the first line yet
-    enum { ASCII, UTF8, UTF16LE, UTF16BE } encoding;	// char encoding scheme
+    enum { 
+        ASCII, 
+        UTF8, 
+        UTF16LE, 
+        UTF16BE 
+    } encoding;	// char encoding scheme
     void *iconvID;		
 
     // read/write from/to string instead of file
